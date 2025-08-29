@@ -1,12 +1,6 @@
-/**
- * Custom error classes for WhatsApp Business API SDK
- */
 
 import { WhatsAppError as IWhatsAppError, OutgoingMessage } from '../types';
 
-/**
- * Base WhatsApp API Error
- */
 export class WhatsAppApiError extends Error {
   public readonly status: number;
   public readonly code: number;
@@ -30,16 +24,12 @@ export class WhatsAppApiError extends Error {
     this.fbtrace_id = errorData?.fbtrace_id;
     this.originalMessage = originalMessage;
     
-    // Maintains proper stack trace for where our error was thrown
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, WhatsAppApiError);
     }
   }
 }
 
-/**
- * Configuration Error - thrown when SDK is misconfigured
- */
 export class ConfigurationError extends Error {
   constructor(message: string, missingFields?: string[]) {
     const fullMessage = missingFields
@@ -55,9 +45,6 @@ export class ConfigurationError extends Error {
   }
 }
 
-/**
- * Webhook Verification Error
- */
 export class WebhookVerificationError extends Error {
   constructor(message: string = 'Webhook verification failed') {
     super(message);
@@ -69,9 +56,6 @@ export class WebhookVerificationError extends Error {
   }
 }
 
-/**
- * Media Processing Error
- */
 export class MediaProcessingError extends Error {
   public readonly mediaId?: string;
   
@@ -86,9 +70,6 @@ export class MediaProcessingError extends Error {
   }
 }
 
-/**
- * Rate Limit Error
- */
 export class RateLimitError extends WhatsAppApiError {
   public readonly retryAfter?: number;
   
@@ -99,9 +80,6 @@ export class RateLimitError extends WhatsAppApiError {
   }
 }
 
-/**
- * Message Validation Error
- */
 export class MessageValidationError extends Error {
   public readonly field: string;
   

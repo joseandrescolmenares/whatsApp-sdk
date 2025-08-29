@@ -1,5 +1,5 @@
 
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import FormData from 'form-data';
 import { createReadStream } from 'fs';
 
@@ -24,7 +24,6 @@ import {
 
 import {
   WhatsAppApiError,
-  ConfigurationError,
   MediaProcessingError,
   RateLimitError
 } from '../errors';
@@ -35,7 +34,6 @@ import {
   validateMediaFile,
   withRetry,
   formatPhoneNumber,
-  generateMessageId,
   getFileExtension
 } from '../utils';
 
@@ -44,20 +42,17 @@ export class WhatsAppClient {
   private readonly httpClient: AxiosInstance;
 
   constructor(config: WhatsAppConfig) {
-    // Validate configuration
     validateConfig(config);
 
-    // Set defaults
     this.config = {
       baseUrl: 'https://graph.facebook.com',
-      apiVersion: 'v17.0',
+      apiVersion: 'v23.0',
       timeout: 30000,
       webhookVerifyToken: '',
       businessId: '',
       ...config
     };
 
-    // Create HTTP client
     this.httpClient = axios.create({
       baseURL: `${this.config.baseUrl}/${this.config.apiVersion}`,
       timeout: this.config.timeout,
@@ -70,11 +65,7 @@ export class WhatsAppClient {
     this.setupInterceptors();
   }
 
-  /**
-   * Sets up request/response interceptors
-   */
   private setupInterceptors(): void {
-    // Request interceptor
     this.httpClient.interceptors.request.use(
       (config) => {
         (config as any).metadata = { startTime: Date.now() };
@@ -83,7 +74,6 @@ export class WhatsAppClient {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor
     this.httpClient.interceptors.response.use(
       (response) => {
         const duration = Date.now() - (response.config as any).metadata.startTime;
@@ -114,9 +104,7 @@ export class WhatsAppClient {
   // MESSAGE SENDING METHODS
   // ========================
 
-  /**
-   * Sends any type of message
-   */
+
   async sendMessage(message: OutgoingMessage): Promise<MessageResponse> {
     validateMessage(message);
 
@@ -150,9 +138,6 @@ export class WhatsAppClient {
     }
   }
 
-  /**
-   * Sends a text message
-   */
   async sendText(
     to: string,
     text: string,
@@ -174,9 +159,6 @@ export class WhatsAppClient {
     return this.sendMessage(message);
   }
 
-  /**
-   * Sends an image message
-   */
   async sendImage(
     to: string,
     image: { id?: string; link?: string; caption?: string },
@@ -195,9 +177,7 @@ export class WhatsAppClient {
     return this.sendMessage(message);
   }
 
-  /**
-   * Sends a video message
-   */
+
   async sendVideo(
     to: string,
     video: { id?: string; link?: string; caption?: string },
@@ -216,9 +196,6 @@ export class WhatsAppClient {
     return this.sendMessage(message);
   }
 
-  /**
-   * Sends an audio message
-   */
   async sendAudio(
     to: string,
     audio: { id?: string; link?: string },
@@ -237,9 +214,7 @@ export class WhatsAppClient {
     return this.sendMessage(message);
   }
 
-  /**
-   * Sends a document message
-   */
+
   async sendDocument(
     to: string,
     document: { id?: string; link?: string; filename: string; caption?: string },
@@ -258,9 +233,6 @@ export class WhatsAppClient {
     return this.sendMessage(message);
   }
 
-  /**
-   * Sends an interactive message with buttons
-   */
   async sendButtons(
     to: string,
     text: string,
@@ -301,9 +273,6 @@ export class WhatsAppClient {
     return this.sendMessage(message);
   }
 
-  /**
-   * Sends an interactive message with a list
-   */
   async sendList(
     to: string,
     text: string,
@@ -346,9 +315,6 @@ export class WhatsAppClient {
     return this.sendMessage(message);
   }
 
-  /**
-   * Sends a template message
-   */
   async sendTemplate(
     to: string,
     templateName: string,
@@ -368,9 +334,6 @@ export class WhatsAppClient {
     return this.sendMessage(message);
   }
 
-  /**
-   * Sends a location message
-   */
   async sendLocation(
     to: string,
     latitude: number,
@@ -403,9 +366,7 @@ export class WhatsAppClient {
   // MEDIA METHODS
   // ========================
 
-  /**
-   * Uploads media to WhatsApp servers
-   */
+
   async uploadMedia(
     file: Buffer | string,
     type: 'image' | 'video' | 'audio' | 'document'
@@ -422,7 +383,7 @@ export class WhatsAppClient {
         const extension = type === 'document' ? 'pdf' : getFileExtension(`${type}/jpeg`);
         formData.append('file', file, `file.${extension}`);
       } else {
-        // File path
+
         formData.append('file', createReadStream(file));
       }
 
@@ -448,9 +409,6 @@ export class WhatsAppClient {
     }
   }
 
-  /**
-   * Gets media information
-   */
   async getMediaInfo(mediaId: string): Promise<MediaInfo> {
     try {
       const response = await this.httpClient.get(`/${mediaId}`);
@@ -463,15 +421,10 @@ export class WhatsAppClient {
     }
   }
 
-  /**
-   * Downloads media from WhatsApp servers
-   */
   async downloadMedia(mediaId: string): Promise<Buffer> {
     try {
-      // First get the media URL
       const mediaInfo = await this.getMediaInfo(mediaId);
       
-      // Then download the actual file
       const response = await this.httpClient.get(mediaInfo.url, {
         responseType: 'arraybuffer'
       });
@@ -489,9 +442,6 @@ export class WhatsAppClient {
   // WEBHOOK METHODS
   // ========================
 
-  /**
-   * Verifies webhook from WhatsApp
-   */
   verifyWebhook(mode: string, token: string, challenge: string): number | null {
     if (mode === 'subscribe' && token === this.config.webhookVerifyToken) {
       return parseInt(challenge, 10);
@@ -499,9 +449,6 @@ export class WhatsAppClient {
     return null;
   }
 
-  /**
-   * Processes incoming webhook and extracts message data
-   */
   parseWebhook(webhook: IncomingMessage): ProcessedIncomingMessage[] {
     const messages: ProcessedIncomingMessage[] = [];
 
@@ -522,12 +469,10 @@ export class WhatsAppClient {
               businessId: entry.id
             };
 
-            // Extract text content
             if (message.text) {
               processedMessage.text = message.text.body;
             }
 
-            // Extract media information
             if (message.image || message.video || message.audio || message.document) {
               const mediaType = message.type as keyof typeof message;
               const mediaData = message[mediaType] as any;
@@ -539,12 +484,10 @@ export class WhatsAppClient {
               };
             }
 
-            // Extract location
             if (message.location) {
               processedMessage.location = message.location;
             }
 
-            // Extract interactive data
             if (message.interactive) {
               processedMessage.interactive = {
                 type: message.interactive.type,
@@ -554,7 +497,6 @@ export class WhatsAppClient {
               };
             }
 
-            // Extract contact info
             if (contact) {
               processedMessage.contact = {
                 name: contact.profile.name
@@ -574,20 +516,16 @@ export class WhatsAppClient {
   // UTILITY METHODS
   // ========================
 
-  /**
-   * Gets the current configuration (without sensitive data)
-   */
   getConfig(): Partial<WhatsAppConfig> {
-    const { accessToken, ...safeConfig } = this.config;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
+    const { accessToken: _, ...safeConfig } = this.config;
     return {
       ...safeConfig,
       accessToken: '***'
     };
   }
 
-  /**
-   * Tests the connection to WhatsApp API
-   */
+
   async testConnection(): Promise<boolean> {
     try {
       await this.httpClient.get(`/${this.config.phoneNumberId}`);

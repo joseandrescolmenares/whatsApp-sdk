@@ -1,9 +1,3 @@
-/**
- * WhatsApp Business API SDK Types
- * 
- * This file contains all the TypeScript interfaces and types
- * for the WhatsApp Business API integration
- */
 
 // ========================
 // ENUMS
@@ -38,19 +32,12 @@ export enum MessageSender {
 // ========================
 
 export interface WhatsAppConfig {
-  /** WhatsApp Business API access token */
   accessToken: string;
-  /** Phone number ID from Meta Business Manager */
   phoneNumberId: string;
-  /** Base URL for WhatsApp API (optional, defaults to Graph API) */
   baseUrl?: string;
-  /** API version (optional, defaults to v17.0) */
   apiVersion?: string;
-  /** Webhook verification token */
   webhookVerifyToken?: string;
-  /** Business ID for webhook validation */
   businessId?: string;
-  /** Request timeout in milliseconds */
   timeout?: number;
 }
 
@@ -59,33 +46,22 @@ export interface WhatsAppConfig {
 // ========================
 
 export interface MessageResponse {
-  /** ID of the sent message */
   messageId: string;
-  /** Success status */
   success: boolean;
-  /** Error message if any */
   error?: string;
-  /** Additional metadata */
   metadata?: Record<string, any>;
 }
 
 export interface MediaResponse {
-  /** Media ID returned by WhatsApp */
   id: string;
-  /** Success status */
   success: boolean;
-  /** Error message if any */
   error?: string;
 }
 
 export interface MediaInfo {
-  /** Media URL */
   url: string;
-  /** File size in bytes */
   file_size: number;
-  /** Media ID */
   id: string;
-  /** MIME type */
   mime_type?: string;
 }
 
@@ -95,14 +71,11 @@ export interface MediaInfo {
 
 export interface TextMessage {
   type: WhatsAppMessageType.TEXT;
-  /** Recipient phone number */
   to: string;
-  /** Message text */
   text: {
     body: string;
     preview_url?: boolean;
   };
-  /** Optional context for replies */
   context?: {
     message_id: string;
   };
@@ -114,11 +87,8 @@ export interface TextMessage {
 
 export interface MediaMessage {
   type: WhatsAppMessageType.IMAGE | WhatsAppMessageType.VIDEO | WhatsAppMessageType.AUDIO | WhatsAppMessageType.DOCUMENT;
-  /** Recipient phone number */
   to: string;
-  /** Media content */
-  [key: string]: any; // Dynamic key based on media type
-  /** Optional context for replies */
+  [key: string]: any; 
   context?: {
     message_id: string;
   };
@@ -321,44 +291,33 @@ export interface IncomingMessage {
 }
 
 export interface ProcessedIncomingMessage {
-  /** Message ID */
   id: string;
-  /** Sender phone number */
   from: string;
-  /** Message timestamp */
   timestamp: string;
-  /** Message type */
   type: WhatsAppMessageType;
-  /** Extracted text content */
   text?: string;
-  /** Media information if applicable */
   media?: {
     id: string;
     mime_type: string;
     caption?: string;
     filename?: string;
   };
-  /** Location information if applicable */
   location?: {
     latitude: number;
     longitude: number;
     name?: string;
     address?: string;
   };
-  /** Interactive response data */
   interactive?: {
     type: string;
     button_id?: string;
     list_id?: string;
     flow_response?: any;
   };
-  /** Contact information */
   contact?: {
     name: string;
   };
-  /** Phone number ID that received the message */
   phoneNumberId: string;
-  /** Business ID */
   businessId: string;
 }
 

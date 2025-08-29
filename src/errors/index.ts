@@ -1,6 +1,3 @@
-/**
- * Error classes export
- */
 
 export {
   WhatsAppApiError,

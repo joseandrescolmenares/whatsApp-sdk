@@ -1,22 +1,13 @@
-/**
- * Validation utilities for WhatsApp Business API SDK
- */
-
 import { MessageValidationError, ConfigurationError } from '../errors';
 import { OutgoingMessage, WhatsAppConfig } from '../types';
 
-/**
- * Validates phone number format
- */
+
 export function validatePhoneNumber(phoneNumber: string): boolean {
-  // WhatsApp phone numbers should include country code and be numeric
   const phoneRegex = /^\+?[1-9]\d{1,14}$/;
   return phoneRegex.test(phoneNumber);
 }
 
-/**
- * Validates WhatsApp configuration
- */
+
 export function validateConfig(config: WhatsAppConfig): void {
   const missingFields: string[] = [];
 
@@ -30,7 +21,6 @@ export function validateConfig(config: WhatsAppConfig): void {
     );
   }
 
-  // Validate access token format (should start with a specific pattern)
   if (!config.accessToken.match(/^[A-Za-z0-9_-]+$/)) {
     throw new ConfigurationError(
       'Invalid access token format'
@@ -38,9 +28,6 @@ export function validateConfig(config: WhatsAppConfig): void {
   }
 }
 
-/**
- * Validates outgoing message structure
- */
 export function validateMessage(message: OutgoingMessage): void {
   if (!message.to) {
     throw new MessageValidationError('Recipient phone number is required', 'to');
@@ -53,9 +40,8 @@ export function validateMessage(message: OutgoingMessage): void {
     );
   }
 
-  // Type-specific validations
   switch (message.type) {
-    case 'text':
+    case 'text': {
       if (!message.text?.body) {
         throw new MessageValidationError('Text message body is required', 'text.body');
       }
@@ -66,8 +52,9 @@ export function validateMessage(message: OutgoingMessage): void {
         );
       }
       break;
+    }
 
-    case 'image':
+    case 'image': {
       const imageMsg = message as any;
       if (!imageMsg.image?.id && !imageMsg.image?.link) {
         throw new MessageValidationError(
@@ -76,8 +63,9 @@ export function validateMessage(message: OutgoingMessage): void {
         );
       }
       break;
+    }
 
-    case 'template':
+    case 'template': {
       const templateMsg = message as any;
       if (!templateMsg.template?.name) {
         throw new MessageValidationError(
@@ -92,8 +80,9 @@ export function validateMessage(message: OutgoingMessage): void {
         );
       }
       break;
+    }
 
-    case 'interactive':
+    case 'interactive': {
       const interactiveMsg = message as any;
       if (!interactiveMsg.interactive?.type) {
         throw new MessageValidationError(
@@ -108,12 +97,10 @@ export function validateMessage(message: OutgoingMessage): void {
         );
       }
       break;
+    }
   }
 }
 
-/**
- * Validates media file constraints
- */
 export function validateMediaFile(buffer: Buffer, type: string): void {
   const maxSizes = {
     image: 5 * 1024 * 1024, // 5MB
@@ -131,13 +118,11 @@ export function validateMediaFile(buffer: Buffer, type: string): void {
   }
 }
 
-/**
- * Sanitizes text input to prevent issues
- */
 export function sanitizeText(text: string): string {
+  // Remove control characters (U+0000 to U+001F and U+007F)
   return text
-    .replace(/[\u0000-\u001F\u007F]/g, '') // Remove control characters
+    .replace(/[\u0000-\u001F\u007F]/g, '') // eslint-disable-line no-control-regex
     .trim()
-    .slice(0, 4096); // Ensure max length
+    .slice(0, 4096);
 }
 

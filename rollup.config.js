@@ -7,7 +7,8 @@ module.exports = [
     output: {
       file: 'dist/index.js',
       format: 'cjs',
-      sourcemap: true
+      sourcemap: true,
+      exports: 'named'
     },
     plugins: [typescript()],
     external: ['axios', 'form-data', 'fs']
@@ -18,7 +19,8 @@ module.exports = [
     output: {
       file: 'dist/index.esm.js',
       format: 'esm',
-      sourcemap: true
+      sourcemap: true,
+      exports: 'named'
     },
     plugins: [typescript()],
     external: ['axios', 'form-data', 'fs']

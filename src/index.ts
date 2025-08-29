@@ -26,16 +26,12 @@
  * ```
  */
 
-// Main client
 export { WhatsAppClient } from './client';
 
-// Types
 export * from './types';
 
-// Errors
 export * from './errors';
 
-// Utilities (selective export for public API)
 export {
   formatPhoneNumber,
   validatePhoneNumber,
@@ -44,8 +40,6 @@ export {
   escapeWhatsAppText
 } from './utils';
 
-// Version
 export const VERSION = '1.0.0';
 
-// Default export for convenience
 export { WhatsAppClient as default } from './client';

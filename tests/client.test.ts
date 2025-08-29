@@ -1,6 +1,3 @@
-/**
- * WhatsApp Client Tests
- */
 
 import { WhatsAppClient } from '../src/client/WhatsAppClient';
 import { ConfigurationError, MessageValidationError } from '../src/errors';

@@ -1,22 +1,11 @@
-/**
- * Helper utilities for WhatsApp Business API SDK
- */
 
-/**
- * Delays execution for specified milliseconds
- */
 export function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/**
- * Formats phone number to WhatsApp standard
- */
 export function formatPhoneNumber(phoneNumber: string): string {
-  // Remove all non-numeric characters except +
   let cleaned = phoneNumber.replace(/[^\d+]/g, '');
   
-  // Add + if not present
   if (!cleaned.startsWith('+')) {
     cleaned = '+' + cleaned;
   }
@@ -24,18 +13,12 @@ export function formatPhoneNumber(phoneNumber: string): string {
   return cleaned;
 }
 
-/**
- * Generates a unique message ID
- */
 export function generateMessageId(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substr(2, 9);
   return `msg_${timestamp}_${random}`;
 }
 
-/**
- * Extracts file extension from MIME type
- */
 export function getFileExtension(mimeType: string): string {
   const mimeMap: { [key: string]: string } = {
     'image/jpeg': 'jpg',
@@ -58,9 +41,6 @@ export function getFileExtension(mimeType: string): string {
   return mimeMap[mimeType] || 'bin';
 }
 
-/**
- * Creates a retry mechanism with exponential backoff
- */
 export async function withRetry<T>(
   fn: () => Promise<T>,
   options: {
@@ -101,9 +81,6 @@ export async function withRetry<T>(
   throw lastError!;
 }
 
-/**
- * Chunks an array into smaller arrays of specified size
- */
 export function chunk<T>(array: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < array.length; i += size) {
@@ -112,9 +89,6 @@ export function chunk<T>(array: T[], size: number): T[][] {
   return chunks;
 }
 
-/**
- * Safe JSON parse with fallback
- */
 export function safeJsonParse<T = any>(json: string, fallback: T): T {
   try {
     return JSON.parse(json) as T;
@@ -123,9 +97,6 @@ export function safeJsonParse<T = any>(json: string, fallback: T): T {
   }
 }
 
-/**
- * Checks if a value is a valid URL
- */
 export function isValidUrl(url: string): boolean {
   try {
     new URL(url);
@@ -135,17 +106,11 @@ export function isValidUrl(url: string): boolean {
   }
 }
 
-/**
- * Truncates text to specified length with ellipsis
- */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - 3) + '...';
 }
 
-/**
- * Escapes special characters in text for WhatsApp
- */
 export function escapeWhatsAppText(text: string): string {
   return text
     .replace(/\\/g, '\\\\')
@@ -155,9 +120,6 @@ export function escapeWhatsAppText(text: string): string {
     .replace(/\t/g, '\\t');
 }
 
-/**
- * Creates a debounced function
- */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
