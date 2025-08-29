@@ -1,5 +1,5 @@
 {
-  "name": "whatsapp-sdk",
+  "name": "@joseandrespena/whatsapp-business-sdk",
   "version": "1.0.0",
   "description": "TypeScript SDK for WhatsApp Business API - Simplify messaging integration",
   "main": "dist/index.js",
@@ -34,7 +34,7 @@
     "chat",
     "open-source"
   ],
-  "author": "Jose Andres Pena <joseandrespena@example.com>",
+  "author": "Jose Andres Pena <tu-email@real.com>",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -29,7 +29,7 @@ describe('WhatsAppClient', () => {
       const config = client.getConfig();
       
       expect(config.baseUrl).toBe('https://graph.facebook.com');
-      expect(config.apiVersion).toBe('v17.0');
+      expect(config.apiVersion).toBe('v23.0');
       expect(config.timeout).toBe(30000);
     });
   });

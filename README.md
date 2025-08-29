@@ -72,7 +72,7 @@ const client = new WhatsAppClient({
   accessToken: 'your-access-token',        // Required: Your WhatsApp Business API token
   phoneNumberId: 'your-phone-number-id',   // Required: Your phone number ID
   baseUrl: 'https://graph.facebook.com',   // Optional: API base URL
-  apiVersion: 'v17.0',                     // Optional: API version
+  apiVersion: 'v23.0',                     // Optional: API version
   timeout: 30000,                          // Optional: Request timeout in ms
   webhookVerifyToken: 'your-verify-token', // Optional: For webhook verification
   businessId: 'your-business-id'           // Optional: Your business ID
