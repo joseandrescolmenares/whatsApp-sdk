@@ -1,0 +1,31 @@
+# Source files
+src/
+tests/
+examples/
+docs/
+
+# Config files
+tsconfig.json
+rollup.config.js
+jest.config.js
+.eslintrc.js
+.prettierrc
+
+# Development files
+.gitignore
+CONTRIBUTING.md
+CHANGELOG.md
+
+# IDE/Editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test coverage
+coverage/

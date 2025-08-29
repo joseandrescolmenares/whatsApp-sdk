@@ -1,0 +1,599 @@
+
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import FormData from 'form-data';
+import { createReadStream } from 'fs';
+
+import {
+  WhatsAppConfig,
+  OutgoingMessage,
+  MessageResponse,
+  MediaResponse,
+  MediaInfo,
+  TextMessage,
+  ImageMessage,
+  VideoMessage,
+  AudioMessage,
+  DocumentMessage,
+  InteractiveMessage,
+  TemplateMessage,
+  LocationMessage,
+  ProcessedIncomingMessage,
+  IncomingMessage,
+  WhatsAppMessageType
+} from '../types';
+
+import {
+  WhatsAppApiError,
+  ConfigurationError,
+  MediaProcessingError,
+  RateLimitError
+} from '../errors';
+
+import {
+  validateConfig,
+  validateMessage,
+  validateMediaFile,
+  withRetry,
+  formatPhoneNumber,
+  generateMessageId,
+  getFileExtension
+} from '../utils';
+
+export class WhatsAppClient {
+  private readonly config: Required<WhatsAppConfig>;
+  private readonly httpClient: AxiosInstance;
+
+  constructor(config: WhatsAppConfig) {
+    // Validate configuration
+    validateConfig(config);
+
+    // Set defaults
+    this.config = {
+      baseUrl: 'https://graph.facebook.com',
+      apiVersion: 'v17.0',
+      timeout: 30000,
+      webhookVerifyToken: '',
+      businessId: '',
+      ...config
+    };
+
+    // Create HTTP client
+    this.httpClient = axios.create({
+      baseURL: `${this.config.baseUrl}/${this.config.apiVersion}`,
+      timeout: this.config.timeout,
+      headers: {
+        'Authorization': `Bearer ${this.config.accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    this.setupInterceptors();
+  }
+
+  /**
+   * Sets up request/response interceptors
+   */
+  private setupInterceptors(): void {
+    // Request interceptor
+    this.httpClient.interceptors.request.use(
+      (config) => {
+        (config as any).metadata = { startTime: Date.now() };
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Response interceptor
+    this.httpClient.interceptors.response.use(
+      (response) => {
+        const duration = Date.now() - (response.config as any).metadata.startTime;
+        console.log(`WhatsApp API call completed in ${duration}ms`);
+        return response;
+      },
+      (error) => {
+        if (error.response?.status === 429) {
+          const retryAfter = error.response.headers['retry-after'];
+          throw new RateLimitError(
+            'Rate limit exceeded',
+            retryAfter ? parseInt(retryAfter) : undefined
+          );
+        }
+
+        const errorData = error.response?.data?.error;
+        throw new WhatsAppApiError(
+          error.message,
+          errorData,
+          undefined,
+          error.response?.status
+        );
+      }
+    );
+  }
+
+  // ========================
+  // MESSAGE SENDING METHODS
+  // ========================
+
+  /**
+   * Sends any type of message
+   */
+  async sendMessage(message: OutgoingMessage): Promise<MessageResponse> {
+    validateMessage(message);
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      ...message
+    };
+
+    try {
+      const response = await withRetry(
+        () => this.httpClient.post(`/${this.config.phoneNumberId}/messages`, payload),
+        { maxRetries: 3 }
+      );
+
+      return {
+        messageId: response.data.messages[0].id,
+        success: true,
+        metadata: {
+          wamid: response.data.messages[0].id,
+          timestamp: Date.now()
+        }
+      };
+    } catch (error: any) {
+      throw new WhatsAppApiError(
+        `Failed to send ${message.type} message`,
+        error.response?.data?.error,
+        message,
+        error.response?.status
+      );
+    }
+  }
+
+  /**
+   * Sends a text message
+   */
+  async sendText(
+    to: string,
+    text: string,
+    options: { previewUrl?: boolean; replyToMessageId?: string } = {}
+  ): Promise<MessageResponse> {
+    const message: TextMessage = {
+      type: WhatsAppMessageType.TEXT,
+      to: formatPhoneNumber(to),
+      text: {
+        body: text,
+        preview_url: options.previewUrl || false
+      }
+    };
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
+  /**
+   * Sends an image message
+   */
+  async sendImage(
+    to: string,
+    image: { id?: string; link?: string; caption?: string },
+    options: { replyToMessageId?: string } = {}
+  ): Promise<MessageResponse> {
+    const message: ImageMessage = {
+      type: WhatsAppMessageType.IMAGE,
+      to: formatPhoneNumber(to),
+      image
+    };
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
+  /**
+   * Sends a video message
+   */
+  async sendVideo(
+    to: string,
+    video: { id?: string; link?: string; caption?: string },
+    options: { replyToMessageId?: string } = {}
+  ): Promise<MessageResponse> {
+    const message: VideoMessage = {
+      type: WhatsAppMessageType.VIDEO,
+      to: formatPhoneNumber(to),
+      video
+    };
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
+  /**
+   * Sends an audio message
+   */
+  async sendAudio(
+    to: string,
+    audio: { id?: string; link?: string },
+    options: { replyToMessageId?: string } = {}
+  ): Promise<MessageResponse> {
+    const message: AudioMessage = {
+      type: WhatsAppMessageType.AUDIO,
+      to: formatPhoneNumber(to),
+      audio
+    };
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
+  /**
+   * Sends a document message
+   */
+  async sendDocument(
+    to: string,
+    document: { id?: string; link?: string; filename: string; caption?: string },
+    options: { replyToMessageId?: string } = {}
+  ): Promise<MessageResponse> {
+    const message: DocumentMessage = {
+      type: WhatsAppMessageType.DOCUMENT,
+      to: formatPhoneNumber(to),
+      document
+    };
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
+  /**
+   * Sends an interactive message with buttons
+   */
+  async sendButtons(
+    to: string,
+    text: string,
+    buttons: Array<{ id: string; title: string }>,
+    options: {
+      header?: { type: 'text'; text: string };
+      footer?: string;
+      replyToMessageId?: string;
+    } = {}
+  ): Promise<MessageResponse> {
+    const message: InteractiveMessage = {
+      type: WhatsAppMessageType.INTERACTIVE,
+      to: formatPhoneNumber(to),
+      interactive: {
+        type: 'button',
+        body: { text },
+        action: {
+          buttons: buttons.map(btn => ({
+            type: 'reply' as const,
+            reply: { id: btn.id, title: btn.title }
+          }))
+        }
+      }
+    };
+
+    if (options.header) {
+      message.interactive.header = options.header;
+    }
+
+    if (options.footer) {
+      message.interactive.footer = { text: options.footer };
+    }
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
+  /**
+   * Sends an interactive message with a list
+   */
+  async sendList(
+    to: string,
+    text: string,
+    buttonText: string,
+    sections: Array<{
+      title?: string;
+      rows: Array<{ id: string; title: string; description?: string }>;
+    }>,
+    options: {
+      header?: { type: 'text'; text: string };
+      footer?: string;
+      replyToMessageId?: string;
+    } = {}
+  ): Promise<MessageResponse> {
+    const message: InteractiveMessage = {
+      type: WhatsAppMessageType.INTERACTIVE,
+      to: formatPhoneNumber(to),
+      interactive: {
+        type: 'list',
+        body: { text },
+        action: {
+          button: buttonText,
+          sections
+        }
+      }
+    };
+
+    if (options.header) {
+      message.interactive.header = options.header;
+    }
+
+    if (options.footer) {
+      message.interactive.footer = { text: options.footer };
+    }
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
+  /**
+   * Sends a template message
+   */
+  async sendTemplate(
+    to: string,
+    templateName: string,
+    languageCode: string,
+    components?: any[]
+  ): Promise<MessageResponse> {
+    const message: TemplateMessage = {
+      type: WhatsAppMessageType.TEMPLATE,
+      to: formatPhoneNumber(to),
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        components
+      }
+    };
+
+    return this.sendMessage(message);
+  }
+
+  /**
+   * Sends a location message
+   */
+  async sendLocation(
+    to: string,
+    latitude: number,
+    longitude: number,
+    options: {
+      name?: string;
+      address?: string;
+      replyToMessageId?: string;
+    } = {}
+  ): Promise<MessageResponse> {
+    const message: LocationMessage = {
+      type: WhatsAppMessageType.LOCATION,
+      to: formatPhoneNumber(to),
+      location: {
+        latitude,
+        longitude,
+        name: options.name,
+        address: options.address
+      }
+    };
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
+  // ========================
+  // MEDIA METHODS
+  // ========================
+
+  /**
+   * Uploads media to WhatsApp servers
+   */
+  async uploadMedia(
+    file: Buffer | string,
+    type: 'image' | 'video' | 'audio' | 'document'
+  ): Promise<MediaResponse> {
+    try {
+      if (file instanceof Buffer) {
+        validateMediaFile(file, type);
+      }
+
+      const formData = new FormData();
+      formData.append('messaging_product', 'whatsapp');
+      
+      if (file instanceof Buffer) {
+        const extension = type === 'document' ? 'pdf' : getFileExtension(`${type}/jpeg`);
+        formData.append('file', file, `file.${extension}`);
+      } else {
+        // File path
+        formData.append('file', createReadStream(file));
+      }
+
+      const response = await this.httpClient.post(
+        `/${this.config.phoneNumberId}/media`,
+        formData,
+        {
+          headers: {
+            ...formData.getHeaders(),
+            'Authorization': `Bearer ${this.config.accessToken}`
+          }
+        }
+      );
+
+      return {
+        id: response.data.id,
+        success: true
+      };
+    } catch (error: any) {
+      throw new MediaProcessingError(
+        `Failed to upload ${type} media: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Gets media information
+   */
+  async getMediaInfo(mediaId: string): Promise<MediaInfo> {
+    try {
+      const response = await this.httpClient.get(`/${mediaId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new MediaProcessingError(
+        `Failed to get media info for ${mediaId}: ${error.message}`,
+        mediaId
+      );
+    }
+  }
+
+  /**
+   * Downloads media from WhatsApp servers
+   */
+  async downloadMedia(mediaId: string): Promise<Buffer> {
+    try {
+      // First get the media URL
+      const mediaInfo = await this.getMediaInfo(mediaId);
+      
+      // Then download the actual file
+      const response = await this.httpClient.get(mediaInfo.url, {
+        responseType: 'arraybuffer'
+      });
+
+      return Buffer.from(response.data);
+    } catch (error: any) {
+      throw new MediaProcessingError(
+        `Failed to download media ${mediaId}: ${error.message}`,
+        mediaId
+      );
+    }
+  }
+
+  // ========================
+  // WEBHOOK METHODS
+  // ========================
+
+  /**
+   * Verifies webhook from WhatsApp
+   */
+  verifyWebhook(mode: string, token: string, challenge: string): number | null {
+    if (mode === 'subscribe' && token === this.config.webhookVerifyToken) {
+      return parseInt(challenge, 10);
+    }
+    return null;
+  }
+
+  /**
+   * Processes incoming webhook and extracts message data
+   */
+  parseWebhook(webhook: IncomingMessage): ProcessedIncomingMessage[] {
+    const messages: ProcessedIncomingMessage[] = [];
+
+    webhook.entry?.forEach(entry => {
+      entry.changes?.forEach(change => {
+        const value = change.value;
+        
+        if (value.messages) {
+          value.messages.forEach(message => {
+            const contact = value.contacts?.[0];
+            
+            const processedMessage: ProcessedIncomingMessage = {
+              id: message.id,
+              from: message.from,
+              timestamp: message.timestamp,
+              type: message.type,
+              phoneNumberId: value.metadata.phone_number_id,
+              businessId: entry.id
+            };
+
+            // Extract text content
+            if (message.text) {
+              processedMessage.text = message.text.body;
+            }
+
+            // Extract media information
+            if (message.image || message.video || message.audio || message.document) {
+              const mediaType = message.type as keyof typeof message;
+              const mediaData = message[mediaType] as any;
+              processedMessage.media = {
+                id: mediaData.id,
+                mime_type: mediaData.mime_type,
+                caption: mediaData.caption,
+                filename: mediaData.filename
+              };
+            }
+
+            // Extract location
+            if (message.location) {
+              processedMessage.location = message.location;
+            }
+
+            // Extract interactive data
+            if (message.interactive) {
+              processedMessage.interactive = {
+                type: message.interactive.type,
+                button_id: message.interactive.button_reply?.id,
+                list_id: message.interactive.list_reply?.id,
+                flow_response: message.interactive.nfm_reply?.response_json
+              };
+            }
+
+            // Extract contact info
+            if (contact) {
+              processedMessage.contact = {
+                name: contact.profile.name
+              };
+            }
+
+            messages.push(processedMessage);
+          });
+        }
+      });
+    });
+
+    return messages;
+  }
+
+  // ========================
+  // UTILITY METHODS
+  // ========================
+
+  /**
+   * Gets the current configuration (without sensitive data)
+   */
+  getConfig(): Partial<WhatsAppConfig> {
+    const { accessToken, ...safeConfig } = this.config;
+    return {
+      ...safeConfig,
+      accessToken: '***'
+    };
+  }
+
+  /**
+   * Tests the connection to WhatsApp API
+   */
+  async testConnection(): Promise<boolean> {
+    try {
+      await this.httpClient.get(`/${this.config.phoneNumberId}`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
