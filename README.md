@@ -47,11 +47,11 @@ pnpm add whatsapp-client-sdk
 
 Create a `.env` file with your WhatsApp Business API credentials:
 
-````
-WHATSAPP_ACCESS_TOKEN=your_access_token_here
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
-WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
-WHATSAPP_BUSINESS_ID=your_business_id_here
+```bash
+  WHATSAPP_ACCESS_TOKEN=your_access_token_here
+  WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
+  WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
+  WHATSAPP_BUSINESS_ID=your_business_id_here 
 ```
 
 ```typescript

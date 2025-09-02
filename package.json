@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-client-sdk",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "TypeScript SDK for WhatsApp Business API - Simplify messaging integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
