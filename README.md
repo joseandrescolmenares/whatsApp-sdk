@@ -98,20 +98,24 @@ WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
 WHATSAPP_BUSINESS_ID=your_business_id_here
 ```
 
-Then update your client initialization:
+Now update your client initialization from the Quick Start to use these variables:
 
-```typescript
+```diff
 const client = new WhatsAppClient({
-  accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
-  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
-  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN!,
-  businessId: process.env.WHATSAPP_BUSINESS_ID, // Optional
-  // Optional: Advanced configuration
-  timeout: 30000,                          // Request timeout in ms
-  apiVersion: 'v23.0'                      // WhatsApp API version
+-  accessToken: 'your-access-token',
+-  phoneNumberId: 'your-phone-number-id', 
+-  webhookVerifyToken: 'your-verify-token'
++  accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
++  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
++  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN!,
++  businessId: process.env.WHATSAPP_BUSINESS_ID, // Optional
++  timeout: 30000,                              // Optional: Request timeout
++  apiVersion: 'v23.0'                          // Optional: API version
 });
+```
 
-// Test your connection
+Test your connection:
+```typescript
 const isConnected = await client.testConnection();
 console.log('WhatsApp API connected:', isConnected);
 ```
