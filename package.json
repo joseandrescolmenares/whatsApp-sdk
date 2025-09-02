@@ -1,5 +1,5 @@
 {
-  "name": "@joseandrespena/whatsapp-business-sdk",
+  "name": "whatsapp-client-sdk",
   "version": "1.0.0",
   "description": "TypeScript SDK for WhatsApp Business API - Simplify messaging integration",
   "main": "dist/index.js",
@@ -34,16 +34,16 @@
     "chat",
     "open-source"
   ],
-  "author": "Jose Andres Pena <tu-email@real.com>",
+  "author": "Jose Andres Colmenares <joseandrescolmenares02@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/joseandrespena/whatsapp-sdk"
+    "url": "https://github.com/joseandrescolmenares/whatsapp-sdk"
   },
   "bugs": {
-    "url": "https://github.com/joseandrespena/whatsapp-sdk/issues"
+    "url": "https://github.com/joseandrescolmenares/whatsapp-sdk/issues"
   },
-  "homepage": "https://github.com/joseandrespena/whatsapp-sdk#readme",
+  "homepage": "https://wazap.dev",
   "engines": {
     "node": ">=16.0.0"
   },

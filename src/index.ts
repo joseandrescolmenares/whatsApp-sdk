@@ -5,7 +5,7 @@
  * 
  * @example
  * ```typescript
- * import { WhatsAppClient } from 'whatsapp-sdk';
+ * import { WhatsAppClient } from 'whatsapp-client-sdk';
  * 
  * const client = new WhatsAppClient({
  *   accessToken: 'your-access-token',
@@ -31,6 +31,8 @@ export { WhatsAppClient } from './client';
 export * from './types';
 
 export * from './errors';
+
+export * from './webhooks';
 
 export {
   formatPhoneNumber,

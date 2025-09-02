@@ -1,4 +1,4 @@
-const { WhatsAppClient } = require("whatsapp-sdk");
+const { WhatsAppClient } = require("whatsapp-client-sdk");
 
 const client = new WhatsAppClient({
   accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
@@ -23,7 +23,7 @@ async function basicExample() {
     console.log("Sending text with URL preview...");
     await client.sendText(
       recipientPhone,
-      "Check out this amazing SDK: https://github.com/your-org/whatsapp-business-sdk",
+      "Check out this amazing SDK: https://wazap.dev",
       { previewUrl: true }
     );
 
@@ -46,7 +46,7 @@ async function basicExample() {
       ],
       {
         header: { type: "text", text: "Interactive Menu" },
-        footer: "Powered by WhatsApp Business SDK",
+        footer: "Powered by wazap.dev",
       }
     );
 

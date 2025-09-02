@@ -14,6 +14,8 @@ export enum WhatsAppMessageType {
   VIDEO = 'video',
   DOCUMENT = 'document',
   LOCATION = 'location',
+  CONTACTS = 'contacts',
+  STICKER = 'sticker',
 }
 
 export enum MessageDirection {
@@ -242,6 +244,72 @@ export interface LocationMessage {
 }
 
 // ========================
+// CONTACTS MESSAGES
+// ========================
+
+export interface ContactMessage {
+  type: WhatsAppMessageType.CONTACTS;
+  to: string;
+  contacts: Array<{
+    addresses?: Array<{
+      street?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+      country?: string;
+      country_code?: string;
+      type?: 'HOME' | 'WORK';
+    }>;
+    birthday?: string; // YYYY-MM-DD format
+    emails?: Array<{
+      email?: string;
+      type?: 'HOME' | 'WORK';
+    }>;
+    name: {
+      formatted_name: string;
+      first_name?: string;
+      last_name?: string;
+      middle_name?: string;
+      suffix?: string;
+      prefix?: string;
+    };
+    org?: {
+      company?: string;
+      department?: string;
+      title?: string;
+    };
+    phones?: Array<{
+      phone?: string;
+      wa_id?: string;
+      type?: 'HOME' | 'WORK';
+    }>;
+    urls?: Array<{
+      url?: string;
+      type?: 'HOME' | 'WORK';
+    }>;
+  }>;
+  context?: {
+    message_id: string;
+  };
+}
+
+// ========================
+// STICKER MESSAGES
+// ========================
+
+export interface StickerMessage {
+  type: WhatsAppMessageType.STICKER;
+  to: string;
+  sticker: {
+    id?: string;
+    link?: string;
+  };
+  context?: {
+    message_id: string;
+  };
+}
+
+// ========================
 // WEBHOOK TYPES
 // ========================
 
@@ -322,6 +390,37 @@ export interface ProcessedIncomingMessage {
 }
 
 // ========================
+// WEBHOOK HANDLER TYPES
+// ========================
+
+export interface WebhookHandlers {
+  onTextMessage?: (message: ProcessedIncomingMessage & { text: string }) => Promise<void> | void;
+  onImageMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
+  onVideoMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
+  onAudioMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
+  onDocumentMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
+  onLocationMessage?: (message: ProcessedIncomingMessage & { location: NonNullable<ProcessedIncomingMessage['location']> }) => Promise<void> | void;
+  onButtonClick?: (message: ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> }) => Promise<void> | void;
+  onListSelect?: (message: ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> }) => Promise<void> | void;
+  onStickerMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
+  onContactMessage?: (message: ProcessedIncomingMessage) => Promise<void> | void;
+  onUnknownMessage?: (message: ProcessedIncomingMessage) => Promise<void> | void;
+  onError?: (error: Error, message?: ProcessedIncomingMessage) => Promise<void> | void;
+}
+
+export interface WebhookProcessorConfig {
+  verifyToken: string;
+  handlers: WebhookHandlers;
+  autoRespond?: boolean;
+}
+
+export interface WebhookProcessorResult {
+  status: number;
+  response: string | number;
+  messages?: ProcessedIncomingMessage[];
+}
+
+// ========================
 // ERROR TYPES
 // ========================
 
@@ -357,7 +456,9 @@ export type OutgoingMessage =
   | DocumentMessage 
   | InteractiveMessage 
   | TemplateMessage 
-  | LocationMessage;
+  | LocationMessage
+  | ContactMessage
+  | StickerMessage;
 
 export type MessageContent = {
   text?: string;

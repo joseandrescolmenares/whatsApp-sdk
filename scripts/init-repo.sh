@@ -21,7 +21,7 @@ git commit -m "Initial commit: WhatsApp SDK v1.0.0
 
 # Add GitHub remote (you'll need to replace with your actual repo URL)
 echo "📝 To add your GitHub repository as remote, run:"
-echo "git remote add origin https://github.com/joseandrespena/whatsapp-sdk.git"
+echo "git remote add origin https://github.com/joseandrescolmenares/whatsapp-sdk.git"
 echo "git branch -M main"
 echo "git push -u origin main"
 

@@ -35,7 +35,7 @@ If applicable, add the full error message and stack trace.
 
 **Environment:**
  - Node.js version: [e.g. 18.0.0]
- - whatsapp-sdk version [e.g. 1.0.0]
+ - whatsapp-client-sdk version [e.g. 1.0.0]
  - OS: [e.g. macOS, Ubuntu, Windows]
 
 **Additional context**

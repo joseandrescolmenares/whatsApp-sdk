@@ -17,9 +17,12 @@ import {
   InteractiveMessage,
   TemplateMessage,
   LocationMessage,
+  ContactMessage,
+  StickerMessage,
   ProcessedIncomingMessage,
   IncomingMessage,
-  WhatsAppMessageType
+  WhatsAppMessageType,
+  WebhookHandlers
 } from '../types';
 
 import {
@@ -36,6 +39,8 @@ import {
   formatPhoneNumber,
   getFileExtension
 } from '../utils';
+
+import { WebhookProcessor } from '../webhooks';
 
 export class WhatsAppClient {
   private readonly config: Required<WhatsAppConfig>;
@@ -362,6 +367,79 @@ export class WhatsAppClient {
     return this.sendMessage(message);
   }
 
+  async sendContacts(
+    to: string,
+    contacts: Array<{
+      addresses?: Array<{
+        street?: string;
+        city?: string;
+        state?: string;
+        zip?: string;
+        country?: string;
+        country_code?: string;
+        type?: 'HOME' | 'WORK';
+      }>;
+      birthday?: string;
+      emails?: Array<{
+        email?: string;
+        type?: 'HOME' | 'WORK';
+      }>;
+      name: {
+        formatted_name: string;
+        first_name?: string;
+        last_name?: string;
+        middle_name?: string;
+        suffix?: string;
+        prefix?: string;
+      };
+      org?: {
+        company?: string;
+        department?: string;
+        title?: string;
+      };
+      phones?: Array<{
+        phone?: string;
+        wa_id?: string;
+        type?: 'HOME' | 'WORK';
+      }>;
+      urls?: Array<{
+        url?: string;
+        type?: 'HOME' | 'WORK';
+      }>;
+    }>,
+    options: { replyToMessageId?: string } = {}
+  ): Promise<MessageResponse> {
+    const message: ContactMessage = {
+      type: WhatsAppMessageType.CONTACTS,
+      to: formatPhoneNumber(to),
+      contacts
+    };
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
+  async sendSticker(
+    to: string,
+    sticker: { id?: string; link?: string },
+    options: { replyToMessageId?: string } = {}
+  ): Promise<MessageResponse> {
+    const message: StickerMessage = {
+      type: WhatsAppMessageType.STICKER,
+      to: formatPhoneNumber(to),
+      sticker
+    };
+
+    if (options.replyToMessageId) {
+      message.context = { message_id: options.replyToMessageId };
+    }
+
+    return this.sendMessage(message);
+  }
+
   // ========================
   // MEDIA METHODS
   // ========================
@@ -510,6 +588,14 @@ export class WhatsAppClient {
     });
 
     return messages;
+  }
+
+  createWebhookProcessor(handlers: WebhookHandlers): WebhookProcessor {
+    return new WebhookProcessor({
+      verifyToken: this.config.webhookVerifyToken,
+      handlers,
+      autoRespond: true
+    });
   }
 
   // ========================
