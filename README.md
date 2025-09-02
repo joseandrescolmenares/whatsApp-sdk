@@ -41,36 +41,13 @@ pnpm add whatsapp-client-sdk
 ### 1. Initialize the Client
 
 ```typescript
-
-
-## 🔧 Environment Setup
-
-Create a `.env` file with your WhatsApp Business API credentials:
-
-```bash
-  WHATSAPP_ACCESS_TOKEN=your_access_token_here
-  WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
-  WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
-  WHATSAPP_BUSINESS_ID=your_business_id_here 
-```
-
-```typescript
 import { WhatsAppClient } from 'whatsapp-client-sdk';
 
 const client = new WhatsAppClient({
-  accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
-  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
-  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN!,
-  businessId: process.env.WHATSAPP_BUSINESS_ID! // Your business account ID
-  // Optional configuration
-  baseUrl: 'https://graph.facebook.com',   // API base URL
-  apiVersion: 'v23.0',                     // API version
-  timeout: 30000,                          // Request timeout in ms
+  accessToken: 'your-access-token',        // Required: Get from Meta Developer Console
+  phoneNumberId: 'your-phone-number-id',   // Required: Your WhatsApp Business phone number ID
+  webhookVerifyToken: 'your-verify-token'  // Required: For receiving messages
 });
-
-// Test your connection
-const isConnected = await client.testConnection();
-console.log('WhatsApp API connected:', isConnected);
 ```
 
 ### 2. Send Your First Message
@@ -110,7 +87,38 @@ app.all('/webhook', async (req, res) => {
 app.listen(3000, () => console.log('Webhook ready on port 3000'));
 ```
 
+## 🔧 Environment Setup
+
+For production apps, use environment variables. Create a `.env` file:
+
+```bash
+WHATSAPP_ACCESS_TOKEN=your_access_token_here
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
+WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
+WHATSAPP_BUSINESS_ID=your_business_id_here
+```
+
+Then update your client initialization:
+
+```typescript
+const client = new WhatsAppClient({
+  accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
+  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
+  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN!,
+  businessId: process.env.WHATSAPP_BUSINESS_ID, // Optional
+  // Optional: Advanced configuration
+  timeout: 30000,                          // Request timeout in ms
+  apiVersion: 'v23.0'                      // WhatsApp API version
+});
+
+// Test your connection
+const isConnected = await client.testConnection();
+console.log('WhatsApp API connected:', isConnected);
+```
+
 ## 📱 Sending Messages
+
+Now you can start sending different types of messages:
 
 ### Text Messages
 
@@ -244,9 +252,9 @@ await client.sendLocation('+1234567890', 40.7128, -74.0060, {
 await client.sendContacts('+1234567890', [
   {
     name: {
-      formatted_name: 'Juan Pérez',
-      first_name: 'Juan',
-      last_name: 'Pérez'
+      formatted_name: 'John Smith',
+      first_name: 'John',
+      last_name: 'Smith'
     },
     phones: [
       {
@@ -256,13 +264,13 @@ await client.sendContacts('+1234567890', [
     ],
     emails: [
       {
-        email: 'juan@empresa.com',
+        email: 'john@company.com',
         type: 'WORK'
       }
     ],
     org: {
-      company: 'Mi Empresa',
-      department: 'Desarrollo',
+      company: 'Tech Company',
+      department: 'Development',
       title: 'Developer'
     }
   }
@@ -432,7 +440,7 @@ Now that you have the basics working, explore these advanced features:
 ```bash
 # Clone the repository
 git clone https://github.com/joseandrescolmenares/whatsapp-sdk.git
-# or visit https://wazap.dev for documentation
+# or visit https://www.wazap.dev/ for documentation
 
 # Install dependencies
 npm install
@@ -471,11 +479,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [WhatsApp Business API Documentation](https://developers.facebook.com/docs/whatsapp)
 - [Meta for Developers](https://developers.facebook.com/)
-- [wazap.dev](https://wazap.dev) - Official SDK Website & Documentation
+- [wazap.dev](https://www.wazap.dev/) - Official SDK Website & Documentation
 
 ## 📞 Support
 
-- 🌐 Website: [wazap.dev](https://wazap.dev)
+- 🌐 Website: [wazap.dev](https://www.wazap.dev/)
 - 📧 Email: joseandrescolmenares02@gmail.com
 - 💼 LinkedIn: [Jose Andres Colmenares](https://www.linkedin.com/in/joseandrescolmenares/)
 - 🐛 Issues: [GitHub Issues](https://github.com/joseandrescolmenares/whatsapp-sdk/issues)
