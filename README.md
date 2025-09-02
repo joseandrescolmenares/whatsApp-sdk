@@ -41,13 +41,36 @@ pnpm add whatsapp-client-sdk
 ### 1. Initialize the Client
 
 ```typescript
+
+
+## 🔧 Environment Setup
+
+Create a `.env` file with your WhatsApp Business API credentials:
+
+```bash
+WHATSAPP_ACCESS_TOKEN=your_access_token_here
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
+WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
+WHATSAPP_BUSINESS_ID=your_business_id_here # Optional
+```
+
+```typescript
 import { WhatsAppClient } from 'whatsapp-client-sdk';
 
 const client = new WhatsAppClient({
-  accessToken: 'your-access-token',        // Required: Get from Meta Developer Console
-  phoneNumberId: 'your-phone-number-id',   // Required: Your WhatsApp Business phone number ID
-  webhookVerifyToken: 'your-verify-token'  // Required: For receiving messages
+  accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
+  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
+  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN!,
+  // Optional configuration
+  baseUrl: 'https://graph.facebook.com',   // API base URL
+  apiVersion: 'v23.0',                     // API version
+  timeout: 30000,                          // Request timeout in ms
+  businessId: process.env.WHATSAPP_BUSINESS_ID // Your business account ID
 });
+
+// Test your connection
+const isConnected = await client.testConnection();
+console.log('WhatsApp API connected:', isConnected);
 ```
 
 ### 2. Send Your First Message
@@ -85,36 +108,6 @@ app.all('/webhook', async (req, res) => {
 });
 
 app.listen(3000, () => console.log('Webhook ready on port 3000'));
-```
-
-## 🔧 Environment Setup
-
-Create a `.env` file with your WhatsApp Business API credentials:
-
-```bash
-WHATSAPP_ACCESS_TOKEN=your_access_token_here
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
-WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
-WHATSAPP_BUSINESS_ID=your_business_id_here # Optional
-```
-
-```typescript
-import { WhatsAppClient } from 'whatsapp-client-sdk';
-
-const client = new WhatsAppClient({
-  accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
-  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
-  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN!,
-  // Optional configuration
-  baseUrl: 'https://graph.facebook.com',   // API base URL
-  apiVersion: 'v23.0',                     // API version
-  timeout: 30000,                          // Request timeout in ms
-  businessId: process.env.WHATSAPP_BUSINESS_ID // Your business account ID
-});
-
-// Test your connection
-const isConnected = await client.testConnection();
-console.log('WhatsApp API connected:', isConnected);
 ```
 
 ## 📱 Sending Messages
