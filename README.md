@@ -47,11 +47,11 @@ pnpm add whatsapp-client-sdk
 
 Create a `.env` file with your WhatsApp Business API credentials:
 
-```bash
+````
 WHATSAPP_ACCESS_TOKEN=your_access_token_here
 WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
 WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
-WHATSAPP_BUSINESS_ID=your_business_id_here # Optional
+WHATSAPP_BUSINESS_ID=your_business_id_here
 ```
 
 ```typescript
@@ -61,11 +61,11 @@ const client = new WhatsAppClient({
   accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
   webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN!,
+  businessId: process.env.WHATSAPP_BUSINESS_ID! // Your business account ID
   // Optional configuration
   baseUrl: 'https://graph.facebook.com',   // API base URL
   apiVersion: 'v23.0',                     // API version
   timeout: 30000,                          // Request timeout in ms
-  businessId: process.env.WHATSAPP_BUSINESS_ID // Your business account ID
 });
 
 // Test your connection
