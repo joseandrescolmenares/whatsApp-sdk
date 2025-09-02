@@ -3,11 +3,11 @@
 [![npm version](https://badge.fury.io/js/whatsapp-client-sdk.svg)](https://badge.fury.io/js/whatsapp-client-sdk)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Website](https://img.shields.io/badge/Website-wazap.dev-blue)](https://wazap.dev)
+[![Website](https://img.shields.io/badge/Website-wazap.dev-blue)](https://www.wazap.dev/)
 
 A powerful, easy-to-use TypeScript/JavaScript SDK for the WhatsApp Business API. Simplify your WhatsApp Business integration with a clean, intuitive API.
 
-> 🌐 **[Visit wazap.dev](https://wazap.dev)** for interactive documentation, live examples, and advanced tutorials.
+> 🌐 **[Visit wazap.dev](https://www.wazap.dev/)** for interactive documentation, live examples, and advanced tutorials.
 
 ## ✨ Features
 
@@ -483,4 +483,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Made with ❤️ for the developer community | Visit [wazap.dev](https://wazap.dev)
+Made with ❤️ for the developer community | Visit [wazap.dev](https://www.wazap.dev/)
