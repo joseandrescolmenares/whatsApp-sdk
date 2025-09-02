@@ -19,7 +19,7 @@ A powerful, easy-to-use TypeScript/JavaScript SDK for the WhatsApp Business API.
 - 🛡️ **Error handling** - Comprehensive error types and handling
 - ⚡ **Modern** - Built with latest TypeScript and modern JavaScript features
 - 🔒 **Secure** - Input validation and security best practices
-- 📖 **Well documented** - Comprehensive documentation and 5 practical examples
+- 📖 **Well documented** - Comprehensive documentation and practical examples
 - 🌐 **Production ready** - Built-in retry logic, rate limiting, and enterprise features
 
 ## 📦 Installation
@@ -38,49 +38,83 @@ pnpm add whatsapp-client-sdk
 
 ## 🚀 Quick Start
 
+### 1. Initialize the Client
+
 ```typescript
 import { WhatsAppClient } from 'whatsapp-client-sdk';
 
-// Initialize the client
 const client = new WhatsAppClient({
-  accessToken: 'your-access-token',
-  phoneNumberId: 'your-phone-number-id'
+  accessToken: 'your-access-token',        // Required: Get from Meta Developer Console
+  phoneNumberId: 'your-phone-number-id',   // Required: Your WhatsApp Business phone number ID
+  webhookVerifyToken: 'your-verify-token'  // Required: For receiving messages
 });
-
-// Send a text message
-await client.sendText('+1234567890', 'Hello from WhatsApp Business SDK! 🚀');
-
-// Send an image
-await client.sendImage('+1234567890', {
-  link: 'https://example.com/image.jpg',
-  caption: 'Check this out!'
-});
-
-// Send interactive buttons
-await client.sendButtons(
-  '+1234567890',
-  'Choose an option:',
-  [
-    { id: 'option_1', title: 'Option 1' },
-    { id: 'option_2', title: 'Option 2' }
-  ]
-);
 ```
 
-## 🔧 Configuration
+### 2. Send Your First Message
+
+```typescript
+// Send a simple text message
+await client.sendText('+1234567890', 'Hello from WhatsApp Business SDK! 🚀');
+console.log('Message sent successfully!');
+```
+
+### 3. Setup Webhook to Receive Messages
+
+```typescript
+import express from 'express';
+
+const app = express();
+app.use(express.json());
+
+// Create webhook processor (handles verification & message parsing automatically)
+const webhookProcessor = client.createWebhookProcessor({
+  onTextMessage: async (message) => {
+    console.log(`Received: ${message.text} from ${message.from}`);
+    
+    // Auto-reply
+    if (message.text.toLowerCase().includes('hello')) {
+      await client.sendText(message.from, 'Hi! How can I help you?');
+    }
+  }
+});
+
+// Single endpoint handles both webhook verification and incoming messages
+app.all('/webhook', async (req, res) => {
+  const result = await webhookProcessor.processWebhook(req.body, req.query);
+  res.status(result.status).send(result.response);
+});
+
+app.listen(3000, () => console.log('Webhook ready on port 3000'));
+```
+
+## 🔧 Environment Setup
+
+Create a `.env` file with your WhatsApp Business API credentials:
+
+```bash
+WHATSAPP_ACCESS_TOKEN=your_access_token_here
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
+WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
+WHATSAPP_BUSINESS_ID=your_business_id_here # Optional
+```
 
 ```typescript
 import { WhatsAppClient } from 'whatsapp-client-sdk';
 
 const client = new WhatsAppClient({
-  accessToken: 'your-access-token',        // Required: Your WhatsApp Business API token
-  phoneNumberId: 'your-phone-number-id',   // Required: Your phone number ID
-  baseUrl: 'https://graph.facebook.com',   // Optional: API base URL
-  apiVersion: 'v23.0',                     // Optional: API version
-  timeout: 30000,                          // Optional: Request timeout in ms
-  webhookVerifyToken: 'your-verify-token', // Optional: For webhook verification
-  businessId: 'your-business-id'           // Optional: Your business ID
+  accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
+  phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
+  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN!,
+  // Optional configuration
+  baseUrl: 'https://graph.facebook.com',   // API base URL
+  apiVersion: 'v23.0',                     // API version
+  timeout: 30000,                          // Request timeout in ms
+  businessId: process.env.WHATSAPP_BUSINESS_ID // Your business account ID
 });
+
+// Test your connection
+const isConnected = await client.testConnection();
+console.log('WhatsApp API connected:', isConnected);
 ```
 
 ## 📱 Sending Messages
@@ -272,147 +306,58 @@ const buffer = await client.downloadMedia('media-id');
 // Use the buffer as needed
 ```
 
-## 🎣 Webhook Handling
+## 🔌 Advanced Webhook Features
 
-### 🌟 Framework-Agnostic Webhook Processor (Revolutionary)
-
-The **most advanced webhook system** in any WhatsApp SDK - works with **ANY framework** with zero boilerplate:
+### Multiple Message Types Handler
 
 ```typescript
-import express from 'express';
-
-const app = express();
-app.use(express.json());
-
-// Create webhook processor with handlers
 const webhookProcessor = client.createWebhookProcessor({
-  // Handle text messages
+  // Text messages
   onTextMessage: async (message) => {
-    console.log(`Text received: ${message.text}`);
-    
-    if (message.text.toLowerCase().includes('hello')) {
-      await client.sendText(message.from, 'Hi there! How can I help?');
-    } else {
-      await client.sendText(message.from, `You said: ${message.text}`);
+    if (message.text.toLowerCase() === 'menu') {
+      await client.sendButtons(message.from, 'Choose an option:', [
+        { id: 'catalog', title: '📋 View Catalog' },
+        { id: 'support', title: '💬 Contact Support' }
+      ]);
     }
-  },
-
-  // Handle images
-  onImageMessage: async (message) => {
-    console.log('Image received:', message.media.id);
-    await client.sendText(message.from, 'Thanks for the image!');
   },
 
   // Handle button clicks
   onButtonClick: async (message) => {
-    console.log(`Button clicked: ${message.interactive.button_id}`);
-    
-    switch (message.interactive.button_id) {
+    const buttonId = message.interactive.button_id;
+    switch (buttonId) {
       case 'catalog':
         await client.sendText(message.from, 'Here\'s our catalog...');
         break;
       case 'support':
         await client.sendText(message.from, 'Connecting you to support...');
         break;
-      default:
-        await client.sendText(message.from, 'Option selected: ' + message.interactive.button_id);
     }
   },
 
-  // Handle errors
+  // Handle media messages (images, videos, documents)
+  onImageMessage: async (message) => {
+    // Download and process the image
+    const buffer = await client.downloadMedia(message.media.id);
+    await client.sendText(message.from, 'Thanks for the image!');
+  },
+
+  // Error handling
   onError: async (error, message) => {
     console.error('Webhook error:', error.message);
   }
 });
+```
 
-// Single endpoint for GET and POST
+### Framework Compatibility
+
+Works with any Node.js framework:
+
+```typescript
+// Express.js / Fastify / Next.js / Nest.js / AWS Lambda
 app.all('/webhook', async (req, res) => {
   const result = await webhookProcessor.processWebhook(req.body, req.query);
   res.status(result.status).send(result.response);
-});
-```
-
-### 🌐 Universal Framework Support
-
-Our webhook processor works seamlessly with **any Node.js framework**:
-
-```typescript
-// Express.js
-app.all('/webhook', async (req, res) => {
-  const result = await webhookProcessor.processWebhook(req.body, req.query);
-  res.status(result.status).send(result.response);
-});
-
-// Fastify
-fastify.all('/webhook', async (request, reply) => {
-  const result = await webhookProcessor.processWebhook(request.body, request.query);
-  reply.code(result.status).send(result.response);
-});
-
-// Next.js App Router (route.js)
-export async function POST(request) {
-  const body = await request.json();
-  const result = await webhookProcessor.processWebhook(body);
-  return new Response(result.response, { status: result.status });
-}
-
-// Next.js Pages Router (api/webhook.js)
-export default async function handler(req, res) {
-  const result = await webhookProcessor.processWebhook(req.body, req.query);
-  res.status(result.status).send(result.response);
-}
-
-// Nest.js Controller
-@Post('webhook')
-async handleWebhook(@Body() body, @Res() res) {
-  const result = await this.whatsappService.processWebhook(body);
-  res.status(result.status).send(result.response);
-}
-
-// AWS Lambda
-exports.handler = async (event) => {
-  const body = JSON.parse(event.body || '{}');
-  const result = await webhookProcessor.processWebhook(body, event.queryStringParameters);
-  return { statusCode: result.status, body: result.response.toString() };
-};
-
-// Vercel Functions
-export default async function handler(req, res) {
-  const result = await webhookProcessor.processWebhook(req.body, req.query);
-  res.status(result.status).send(result.response);
-}
-
-// Pure Node.js HTTP
-const server = http.createServer(async (req, res) => {
-  if (req.url === '/webhook') {
-    const body = await getRequestBody(req);
-    const query = url.parse(req.url, true).query;
-    const result = await webhookProcessor.processWebhook(body, query);
-    res.writeHead(result.status).end(result.response.toString());
-  }
-});
-```
-
-### Manual Webhook Handling
-
-If you need more control:
-
-```typescript
-app.get('/webhook', (req, res) => {
-  const result = client.verifyWebhook(
-    req.query['hub.mode'],
-    req.query['hub.verify_token'],
-    req.query['hub.challenge']
-  );
-  res.status(result ? 200 : 403).send(result || 'Forbidden');
-});
-
-app.post('/webhook', (req, res) => {
-  const messages = client.parseWebhook(req.body);
-  messages.forEach(async (message) => {
-    // Handle messages manually
-  });
-  res.status(200).send('OK');
 });
 ```
 
@@ -454,16 +399,15 @@ const isConnected = await client.testConnection();
 console.log('Connected:', isConnected);
 ```
 
-## 🔐 Environment Variables
+## 🎯 Next Steps
 
-Create a \`.env\` file in your project:
+Now that you have the basics working, explore these advanced features:
 
-```bash
-WHATSAPP_ACCESS_TOKEN=your_access_token_here
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
-WHATSAPP_WEBHOOK_TOKEN=your_webhook_verify_token_here
-WHATSAPP_BUSINESS_ID=your_business_id_here
-```
+1. **📱 Send Media**: Upload and send images, videos, documents
+2. **🔘 Interactive Messages**: Use buttons and lists for better UX
+3. **📞 Business Features**: Send contacts, locations, and stickers  
+4. **🏗️ Scale Up**: Add error handling, logging, and production configs
+5. **🌐 Deploy**: Use Next.js, Nest.js, or any framework you prefer
 
 ## 📚 API Reference
 
@@ -536,99 +480,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Meta for Developers](https://developers.facebook.com/)
 - [wazap.dev](https://wazap.dev) - Official SDK Website & Documentation
 
-## 📚 Examples
-
-We provide **7 comprehensive examples** to get you started quickly:
-
-### 🎯 [Basic Usage](examples/basic-usage.js)
-Complete example showing all message types:
-- Text messages with URL preview
-- Image, video, audio, document messages
-- Interactive buttons and lists
-- Location sharing
-- Error handling patterns
-
-### 🎣 [Simple Webhook Handler](examples/simple-webhook-handler.js)
-Minimal webhook implementation using our framework-agnostic processor:
-- Zero boilerplate setup
-- Text message auto-responder
-- Image and media handling
-- Smart routing based on message content
-
-### 🌐 [Framework-Agnostic Webhook](examples/framework-agnostic-webhook.js)
-Demonstrates webhook processor with multiple frameworks:
-- Express.js integration
-- Fastify integration  
-- Next.js API routes
-- AWS Lambda functions
-- Node.js HTTP server
-
-### 👥 [Contacts & Stickers](examples/contacts-and-stickers.js)
-Advanced features for sharing contacts and stickers:
-- Complete contact information sharing
-- Multiple contacts in one message
-- Sticker messages with WebP format
-- Professional contact cards
-
-### 🤖 [Complete Webhook Bot](examples/webhook-handler.js)
-Full-featured chatbot example with:
-- Command-based responses (hello, help, buttons, list)
-- Interactive button handling
-- List menu selections
-- Media file processing and download
-- Location message handling
-- Professional error handling
-- Express.js server setup
-
-### ⚡ [Next.js Integration](examples/nextjs-webhook.js)
-Complete Next.js implementation with both routing systems:
-- **App Router (Next.js 13+)**: Modern route.js API handlers
-- **Pages Router (Next.js 12)**: Traditional API routes
-- Vercel deployment configuration
-- Middleware for security and logging
-- Production-ready setup with environment variables
-- Works with both development and production
-
-### 🦅 [Nest.js Enterprise](examples/nestjs-webhook.ts)
-Enterprise-grade implementation with full Nest.js architecture:
-- **Dependency Injection**: Service-based architecture
-- **Guards & Interceptors**: Security and logging middleware
-- **Decorators**: Clean, declarative code structure
-- **TypeScript First**: Full type safety throughout
-- **Modular Design**: Scalable module organization
-- **Health Checks**: Production monitoring endpoints
-- **Error Handling**: Enterprise-level error management
-
-Each example includes:
-- ✅ Complete working code
-- ✅ Environment variable setup
-- ✅ Error handling patterns
-- ✅ TypeScript-ready
-- ✅ Production best practices
-
-## 🎯 Why Choose This SDK?
-
-### 🌟 **Unique Features Not Found Elsewhere**
-
-1. **Framework-Agnostic Webhooks**: Only SDK that works with ANY Node.js framework
-2. **Zero Boilerplate**: One line webhook handling regardless of your stack
-3. **Enterprise TypeScript**: 100% type-safe with intersection types
-4. **Smart Error Handling**: Context-aware error handling with message details
-5. **Production Ready**: Built-in retry logic, rate limiting, and performance optimizations
-
-### 📊 **Comparison with Other SDKs**
-
-| Feature | This SDK | Twilio SDK | Other SDKs |
-|---------|----------|------------|------------|
-| Framework Agnostic | ✅ **Unique** | ❌ | ❌ |
-| Full TypeScript | ✅ Complete | ⚠️ Partial | ❌ Basic |
-| Zero Boilerplate | ✅ One line | ❌ Complex | ❌ Complex |
-| All Message Types | ✅ 12 types | ⚠️ Limited | ⚠️ Limited |
-| Error Handling | ✅ Enterprise | ⚠️ Basic | ❌ Minimal |
-| Examples | ✅ 7 complete | ⚠️ Few | ❌ None |
-| Next.js Support | ✅ Both routers | ❌ | ❌ |
-| Nest.js Support | ✅ Full enterprise | ❌ | ❌ |
-
 ## 📞 Support
 
 - 🌐 Website: [wazap.dev](https://wazap.dev)
@@ -636,7 +487,6 @@ Each example includes:
 - 💼 LinkedIn: [Jose Andres Colmenares](https://www.linkedin.com/in/joseandrescolmenares/)
 - 🐛 Issues: [GitHub Issues](https://github.com/joseandrescolmenares/whatsapp-sdk/issues)
 - 💬 Discussions: [GitHub Discussions](https://github.com/joseandrescolmenares/whatsapp-sdk/discussions)
-- 📖 Technical Guide: [TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)
 
 ---
 
