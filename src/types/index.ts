@@ -344,7 +344,9 @@ export type ReactionEmoji = typeof REACTION_EMOJIS[keyof typeof REACTION_EMOJIS]
 
 export interface TypingIndicatorMessage {
   messaging_product: 'whatsapp';
+  recipient_type?: 'individual';
   to: string;
+  message_id?: string;
   typing_indicator: {
     type: 'text';
   };

@@ -629,11 +629,13 @@ export class WhatsAppClient {
   // TYPING INDICATORS & READ RECEIPTS
   // ========================
 
-  async sendTypingIndicator(to: string): Promise<TypingIndicatorResponse> {
+  async sendTypingIndicator(to: string, messageId?: string): Promise<TypingIndicatorResponse> {
     try {
       const payload: TypingIndicatorMessage = {
         messaging_product: 'whatsapp',
+        recipient_type: 'individual',
         to: formatPhoneNumber(to),
+        ...(messageId && { message_id: messageId }),
         typing_indicator: {
           type: 'text'
         }
@@ -679,13 +681,13 @@ export class WhatsAppClient {
     }
   }
 
-  async sendTypingIndicatorWithDuration(to: string, durationMs: number = 15000): Promise<TypingIndicatorResponse> {
+  async sendTypingIndicatorWithDuration(to: string, durationMs: number = 15000, messageId?: string): Promise<TypingIndicatorResponse> {
     const maxDuration = 25000; // WhatsApp max is 25 seconds
     const safeDuration = Math.min(durationMs, maxDuration);
 
     try {
       // Send typing indicator
-      const result = await this.sendTypingIndicator(to);
+      const result = await this.sendTypingIndicator(to, messageId);
       
       if (!result.success) {
         return result;

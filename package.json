@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-client-sdk",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "TypeScript SDK for WhatsApp Business API - Simplify messaging integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -32,7 +32,9 @@
     "facebook",
     "webhook",
     "chat",
-    "open-source"
+    "open-source",
+    "whatsapp-business-api",
+    "whatsapp-api"
   ],
   "author": "Jose Andres Colmenares <joseandrescolmenares02@gmail.com>",
   "license": "MIT",
