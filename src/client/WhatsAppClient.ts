@@ -635,7 +635,9 @@ export class WhatsAppClient {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
         to: formatPhoneNumber(to),
+        status: 'read',
         ...(messageId && { message_id: messageId }),
+       
         typing_indicator: {
           type: 'text'
         }

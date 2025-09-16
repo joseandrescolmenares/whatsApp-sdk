@@ -22,12 +22,17 @@ async function typingExample() {
 
     // 1. Basic typing indicator
     console.log("1. Sending typing indicator...");
-    await client.sendTypingIndicator(phoneNumber);
+
+    // First send a message to get its ID
+    const firstMessage = await client.sendText(phoneNumber, "First message to get ID");
+
+    // Use that message ID for typing indicator
+    await client.sendTypingIndicator(phoneNumber, firstMessage.messageId);
 
     // Wait 2 seconds (user sees "typing...")
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Send message
+    // Send response message
     await client.sendText(
       phoneNumber,
       "Hello! This message was sent after showing a typing indicator."
@@ -36,7 +41,12 @@ async function typingExample() {
 
     // 2. Typing indicator with custom duration
     console.log("\n2. Typing indicator with 5 second duration...");
-    await client.sendTypingIndicatorWithDuration(phoneNumber, 5000);
+
+    // Send another message to get its ID
+    const secondMessage = await client.sendText(phoneNumber, "Second message for extended typing");
+
+    // Use message ID with custom duration
+    await client.sendTypingIndicatorWithDuration(phoneNumber, 5000, secondMessage.messageId);
 
     // Wait 3 seconds
     await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -58,11 +68,8 @@ const webhookProcessor = client.createWebhookProcessor({
   onTextMessage: async (message) => {
     console.log(`📥 Message from ${message.from}: ${message.text}`);
 
-    // Mark as read
-    await client.markMessageAsRead(message.id);
-
-    // Show typing indicator
-    await client.sendTypingIndicator(message.from);
+    // Show typing indicator with message ID
+    await client.sendTypingIndicator(message.from, message.id);
 
     // Simulate processing time
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -78,15 +85,14 @@ const webhookProcessor = client.createWebhookProcessor({
 
   onImageMessage: async (message) => {
     console.log(`🖼️ Image received from ${message.from}`);
-    await client.markMessageAsRead(message.id);
 
-    await client.sendTypingIndicator(message.from);
+    await client.sendTypingIndicator(message.from, message.id);
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     await client.sendText(message.from, "📸 Thanks for the image!");
   },
 
-  onError: async (error, message) => {
+  onError: async (error) => {
     console.error("❌ Webhook error:", error.message);
   },
 });

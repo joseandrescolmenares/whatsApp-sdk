@@ -347,6 +347,7 @@ export interface TypingIndicatorMessage {
   recipient_type?: 'individual';
   to: string;
   message_id?: string;
+  status?: 'read';
   typing_indicator: {
     type: 'text';
   };

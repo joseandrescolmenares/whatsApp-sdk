@@ -169,6 +169,7 @@ describe('WhatsAppClient', () => {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
         to: '+1234567890',
+        status: 'read',
         typing_indicator: {
           type: 'text'
         }
@@ -196,6 +197,7 @@ describe('WhatsAppClient', () => {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
         to: '+1234567890',
+        status: 'read',
         typing_indicator: {
           type: 'text'
         }
@@ -220,6 +222,7 @@ describe('WhatsAppClient', () => {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
         to: '+1234567890', // Should be formatted with +
+        status: 'read',
         typing_indicator: {
           type: 'text'
         }

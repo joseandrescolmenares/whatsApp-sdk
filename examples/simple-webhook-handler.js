@@ -18,8 +18,8 @@ const webhookProcessor = client.createWebhookProcessor({
   onTextMessage: async (message) => {
     console.log(`📥 Message from ${message.from}: ${message.text}`);
 
-    // Mark as read
-    await client.markMessageAsRead(message.id);
+    // Show typing indicator and mark as read
+    await client.sendTypingIndicator(message.from, message.id);
 
     // Send a simple response
     await client.sendText(message.from, `✅ Message received: "${message.text}"`);
@@ -29,7 +29,7 @@ const webhookProcessor = client.createWebhookProcessor({
 
   onImageMessage: async (message) => {
     console.log(`🖼️ Image received from ${message.from}`);
-    await client.markMessageAsRead(message.id);
+    await client.sendTypingIndicator(message.from, message.id);
     await client.sendText(message.from, '📸 Thanks for the image!');
   },
 
