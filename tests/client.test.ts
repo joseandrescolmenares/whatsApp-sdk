@@ -167,6 +167,7 @@ describe('WhatsAppClient', () => {
       expect(result.messageId).toBeUndefined();
       expect(mockPost).toHaveBeenCalledWith('/test-phone-id/messages', {
         messaging_product: 'whatsapp',
+        recipient_type: 'individual',
         to: '+1234567890',
         typing_indicator: {
           type: 'text'
@@ -193,6 +194,7 @@ describe('WhatsAppClient', () => {
       expect(result.success).toBe(true);
       expect(mockPost).toHaveBeenCalledWith('/test-phone-id/messages', {
         messaging_product: 'whatsapp',
+        recipient_type: 'individual',
         to: '+1234567890',
         typing_indicator: {
           type: 'text'
@@ -216,6 +218,7 @@ describe('WhatsAppClient', () => {
 
       expect(mockPost).toHaveBeenCalledWith('/test-phone-id/messages', {
         messaging_product: 'whatsapp',
+        recipient_type: 'individual',
         to: '+1234567890', // Should be formatted with +
         typing_indicator: {
           type: 'text'
