@@ -14,6 +14,7 @@ A powerful, easy-to-use TypeScript/JavaScript SDK for the WhatsApp Business API.
 - 🚀 **Easy to use** - Simple, intuitive API design
 - 📝 **Full TypeScript support** - Complete type definitions included
 - 🔄 **All message types** - Text, images, videos, documents, interactive messages, templates, contacts, stickers
+- 💬 **Typing indicators & read receipts** - Enhanced user experience with real-time status updates
 - 🎣 **Framework-agnostic webhooks** - Zero boilerplate webhook handling that works with any framework
 - 📁 **Media management** - Upload, download, and manage media files
 - 🛡️ **Error handling** - Comprehensive error types and handling
@@ -295,6 +296,140 @@ await client.sendSticker('+1234567890', {
 });
 ```
 
+## 💬 Typing Indicators & Read Receipts
+
+Enhance user experience with typing indicators and read receipts:
+
+### Typing Indicators
+
+```typescript
+// Show typing indicator
+await client.sendTypingIndicator('+1234567890');
+
+// Show typing indicator with custom duration (max 25 seconds)
+await client.sendTypingIndicatorWithDuration('+1234567890', 15000);
+
+// Best practice: Show typing before sending response
+await client.sendTypingIndicator('+1234567890');
+await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing
+await client.sendText('+1234567890', 'Here is your response!');
+```
+
+### Read Receipts
+
+```typescript
+// Mark a message as read
+await client.markMessageAsRead('wamid.HBgLMTY1MDM4Nzk0MzkVAgARGBJDQjZCMzlEQUE4OTJCMTE4RTUA');
+
+// In webhook handler - auto-mark messages as read
+const webhookProcessor = client.createWebhookProcessor({
+  onTextMessage: async (message) => {
+    // Mark message as read immediately
+    await client.markMessageAsRead(message.id);
+    
+    // Show typing indicator while processing
+    await client.sendTypingIndicator(message.from);
+    
+    // Process and respond
+    const response = await processMessage(message.text);
+    await client.sendText(message.from, response);
+  }
+});
+```
+
+### Smart Conversation Flow
+
+```typescript
+async function smartConversation(phoneNumber) {
+  // 1. Show typing indicator
+  await client.sendTypingIndicator(phoneNumber);
+  
+  // 2. Simulate processing time
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  // 3. Send response
+  await client.sendText(phoneNumber, '¡Hola! ¿Cómo puedo ayudarte?');
+  
+  // 4. Show typing for follow-up
+  await client.sendTypingIndicatorWithDuration(phoneNumber, 5000);
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // 5. Send detailed information
+  await client.sendText(phoneNumber, 'Aquí tienes las opciones disponibles...');
+}
+```
+
+## 😍 Message Reactions
+
+React to messages with emojis to enhance user engagement:
+
+### Basic Reactions
+
+```typescript
+// Send reaction to a message
+await client.sendReaction('+1234567890', 'wamid.HBgLMTY1MDM4Nzk0MzkVAgARGBJDQjZCMzlEQUE4OTJCMTE4RTUA', '👍');
+
+// Remove a reaction
+await client.removeReaction('+1234567890', 'wamid.HBgLMTY1MDM4Nzk0MzkVAgARGBJDQjZCMzlEQUE4OTJCMTE4RTUA');
+```
+
+### Convenience Methods
+
+Use predefined methods for common reactions:
+
+```typescript
+// Common reactions
+await client.reactWithLike('+1234567890', messageId);
+await client.reactWithLove('+1234567890', messageId);
+await client.reactWithLaugh('+1234567890', messageId);
+await client.reactWithFire('+1234567890', messageId);
+await client.reactWithCheck('+1234567890', messageId);
+
+// More reactions available
+await client.reactWithWow('+1234567890', messageId);
+await client.reactWithSad('+1234567890', messageId);
+await client.reactWithAngry('+1234567890', messageId);
+await client.reactWithThumbsDown('+1234567890', messageId);
+await client.reactWithHeartEyes('+1234567890', messageId);
+await client.reactWithClap('+1234567890', messageId);
+await client.reactWithCross('+1234567890', messageId);
+```
+
+### Using Reaction Constants
+
+```typescript
+import { REACTION_EMOJIS } from 'whatsapp-client-sdk';
+
+// Use predefined emoji constants
+await client.sendReaction('+1234567890', messageId, REACTION_EMOJIS.HEART);
+await client.sendReaction('+1234567890', messageId, REACTION_EMOJIS.FIRE);
+await client.sendReaction('+1234567890', messageId, REACTION_EMOJIS.CLAP);
+
+// Available constants:
+// LIKE, LOVE, LAUGH, WOW, SAD, ANGRY, THUMBS_UP, THUMBS_DOWN, 
+// HEART, HEART_EYES, FIRE, CLAP, CHECK, CROSS
+```
+
+### Auto-React in Webhooks
+
+```typescript
+const webhookProcessor = client.createWebhookProcessor({
+  onTextMessage: async (message) => {
+    // Auto-react based on message content
+    if (message.text.toLowerCase().includes('awesome')) {
+      await client.reactWithFire(message.from, message.id);
+    } else if (message.text.toLowerCase().includes('thanks')) {
+      await client.reactWithHeart(message.from, message.id);
+    } else if (message.text.toLowerCase().includes('funny')) {
+      await client.reactWithLaugh(message.from, message.id);
+    } else {
+      // Default reaction for any text message
+      await client.reactWithLike(message.from, message.id);
+    }
+  }
+});
+```
+
 ## 📁 Media Management
 
 ```typescript
@@ -431,6 +566,16 @@ Now that you have the basics working, explore these advanced features:
 | \`sendLocation(to, lat, lng, options?)\` | Send location message | \`Promise<MessageResponse>\` |
 | \`sendContacts(to, contacts, options?)\` | Send contact message | \`Promise<MessageResponse>\` |
 | \`sendSticker(to, sticker, options?)\` | Send sticker message | \`Promise<MessageResponse>\` |
+| \`sendTypingIndicator(to)\` | Show typing indicator | \`Promise<TypingIndicatorResponse>\` |
+| \`sendTypingIndicatorWithDuration(to, duration?)\` | Show typing indicator with custom duration | \`Promise<TypingIndicatorResponse>\` |
+| \`markMessageAsRead(messageId)\` | Mark message as read | \`Promise<TypingIndicatorResponse>\` |
+| \`sendReaction(to, messageId, emoji)\` | Send reaction to message | \`Promise<ReactionResponse>\` |
+| \`reactWithLike(to, messageId)\` | React with like emoji | \`Promise<ReactionResponse>\` |
+| \`reactWithLove(to, messageId)\` | React with love emoji | \`Promise<ReactionResponse>\` |
+| \`reactWithLaugh(to, messageId)\` | React with laugh emoji | \`Promise<ReactionResponse>\` |
+| \`reactWithFire(to, messageId)\` | React with fire emoji | \`Promise<ReactionResponse>\` |
+| \`reactWithCheck(to, messageId)\` | React with check emoji | \`Promise<ReactionResponse>\` |
+| \`removeReaction(to, messageId)\` | Remove reaction from message | \`Promise<ReactionResponse>\` |
 | \`uploadMedia(file, type)\` | Upload media file | \`Promise<MediaResponse>\` |
 | \`downloadMedia(mediaId)\` | Download media file | \`Promise<Buffer>\` |
 | \`getMediaInfo(mediaId)\` | Get media information | \`Promise<MediaInfo>\` |

@@ -19,10 +19,17 @@ import {
   LocationMessage,
   ContactMessage,
   StickerMessage,
+  ReactionMessage,
   ProcessedIncomingMessage,
   IncomingMessage,
   WhatsAppMessageType,
-  WebhookHandlers
+  WebhookHandlers,
+  TypingIndicatorMessage,
+  ReadReceiptMessage,
+  TypingIndicatorResponse,
+  ReactionResponse,
+  ReactionEmoji,
+  REACTION_EMOJIS
 } from '../types';
 
 import {
@@ -114,8 +121,6 @@ export class WhatsAppClient {
     validateMessage(message);
 
     const payload = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
       ...message
     };
 
@@ -149,6 +154,8 @@ export class WhatsAppClient {
     options: { previewUrl?: boolean; replyToMessageId?: string } = {}
   ): Promise<MessageResponse> {
     const message: TextMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.TEXT,
       to: formatPhoneNumber(to),
       text: {
@@ -170,6 +177,8 @@ export class WhatsAppClient {
     options: { replyToMessageId?: string } = {}
   ): Promise<MessageResponse> {
     const message: ImageMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.IMAGE,
       to: formatPhoneNumber(to),
       image
@@ -189,6 +198,8 @@ export class WhatsAppClient {
     options: { replyToMessageId?: string } = {}
   ): Promise<MessageResponse> {
     const message: VideoMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.VIDEO,
       to: formatPhoneNumber(to),
       video
@@ -207,6 +218,8 @@ export class WhatsAppClient {
     options: { replyToMessageId?: string } = {}
   ): Promise<MessageResponse> {
     const message: AudioMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.AUDIO,
       to: formatPhoneNumber(to),
       audio
@@ -226,6 +239,8 @@ export class WhatsAppClient {
     options: { replyToMessageId?: string } = {}
   ): Promise<MessageResponse> {
     const message: DocumentMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.DOCUMENT,
       to: formatPhoneNumber(to),
       document
@@ -249,6 +264,8 @@ export class WhatsAppClient {
     } = {}
   ): Promise<MessageResponse> {
     const message: InteractiveMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.INTERACTIVE,
       to: formatPhoneNumber(to),
       interactive: {
@@ -293,6 +310,8 @@ export class WhatsAppClient {
     } = {}
   ): Promise<MessageResponse> {
     const message: InteractiveMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.INTERACTIVE,
       to: formatPhoneNumber(to),
       interactive: {
@@ -327,6 +346,8 @@ export class WhatsAppClient {
     components?: any[]
   ): Promise<MessageResponse> {
     const message: TemplateMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.TEMPLATE,
       to: formatPhoneNumber(to),
       template: {
@@ -350,6 +371,8 @@ export class WhatsAppClient {
     } = {}
   ): Promise<MessageResponse> {
     const message: LocationMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.LOCATION,
       to: formatPhoneNumber(to),
       location: {
@@ -410,6 +433,8 @@ export class WhatsAppClient {
     options: { replyToMessageId?: string } = {}
   ): Promise<MessageResponse> {
     const message: ContactMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.CONTACTS,
       to: formatPhoneNumber(to),
       contacts
@@ -428,6 +453,8 @@ export class WhatsAppClient {
     options: { replyToMessageId?: string } = {}
   ): Promise<MessageResponse> {
     const message: StickerMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       type: WhatsAppMessageType.STICKER,
       to: formatPhoneNumber(to),
       sticker
@@ -596,6 +623,318 @@ export class WhatsAppClient {
       handlers,
       autoRespond: true
     });
+  }
+
+  // ========================
+  // TYPING INDICATORS & READ RECEIPTS
+  // ========================
+
+  async sendTypingIndicator(to: string): Promise<TypingIndicatorResponse> {
+    try {
+      const payload: TypingIndicatorMessage = {
+        messaging_product: 'whatsapp',
+        to: formatPhoneNumber(to),
+        typing_indicator: {
+          type: 'text'
+        }
+      };
+
+      await withRetry(async () => {
+        await this.httpClient.post(`/${this.config.phoneNumberId}/messages`, payload);
+      }, { maxRetries: 1, initialDelay: 100 });
+
+      return {
+        success: true,
+        messageId: undefined // Typing indicators don't return message IDs
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send typing indicator'
+      };
+    }
+  }
+
+  async markMessageAsRead(messageId: string): Promise<TypingIndicatorResponse> {
+    try {
+      const payload: ReadReceiptMessage = {
+        messaging_product: 'whatsapp',
+        status: 'read',
+        message_id: messageId
+      };
+
+      await withRetry(async () => {
+        await this.httpClient.post(`/${this.config.phoneNumberId}/messages`, payload);
+      }, { maxRetries: 1, initialDelay: 100 });
+
+      return {
+        success: true,
+        messageId
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mark message as read'
+      };
+    }
+  }
+
+  async sendTypingIndicatorWithDuration(to: string, durationMs: number = 15000): Promise<TypingIndicatorResponse> {
+    const maxDuration = 25000; // WhatsApp max is 25 seconds
+    const safeDuration = Math.min(durationMs, maxDuration);
+
+    try {
+      // Send typing indicator
+      const result = await this.sendTypingIndicator(to);
+      
+      if (!result.success) {
+        return result;
+      }
+
+      // Auto-clear after specified duration
+      const timeout = setTimeout(() => {
+        // In a real implementation, you might want to send a "stop typing" indicator
+        // For now, we'll just log that the typing indicator expired
+        console.debug(`Typing indicator for ${to} expired after ${safeDuration}ms`);
+      }, safeDuration);
+      
+      // Don't keep the process alive for this timeout
+      timeout.unref();
+
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send typing indicator with duration'
+      };
+    }
+  }
+
+  // ========================
+  // CONTEXTUAL REPLY METHODS
+  // ========================
+
+  async replyToMessage(
+    to: string,
+    messageId: string,
+    text: string,
+    options: { previewUrl?: boolean } = {}
+  ): Promise<MessageResponse> {
+    return this.sendText(to, text, {
+      ...options,
+      replyToMessageId: messageId
+    });
+  }
+
+  async replyWithImage(
+    to: string,
+    messageId: string,
+    image: { id?: string; link?: string; caption?: string }
+  ): Promise<MessageResponse> {
+    return this.sendImage(to, image, {
+      replyToMessageId: messageId
+    });
+  }
+
+  async replyWithVideo(
+    to: string,
+    messageId: string,
+    video: { id?: string; link?: string; caption?: string }
+  ): Promise<MessageResponse> {
+    return this.sendVideo(to, video, {
+      replyToMessageId: messageId
+    });
+  }
+
+  async replyWithAudio(
+    to: string,
+    messageId: string,
+    audio: { id?: string; link?: string }
+  ): Promise<MessageResponse> {
+    return this.sendAudio(to, audio, {
+      replyToMessageId: messageId
+    });
+  }
+
+  async replyWithDocument(
+    to: string,
+    messageId: string,
+    document: { id?: string; link?: string; caption?: string; filename: string }
+  ): Promise<MessageResponse> {
+    return this.sendDocument(to, document, {
+      replyToMessageId: messageId
+    });
+  }
+
+  async replyWithButtons(
+    to: string,
+    messageId: string,
+    text: string,
+    buttons: Array<{ id: string; title: string }>,
+    options: {
+      header?: { type: 'text'; text: string };
+      footer?: string;
+    } = {}
+  ): Promise<MessageResponse> {
+    return this.sendButtons(to, text, buttons, {
+      ...options,
+      replyToMessageId: messageId
+    });
+  }
+
+  async replyWithList(
+    to: string,
+    messageId: string,
+    text: string,
+    buttonText: string,
+    sections: Array<{
+      title?: string;
+      rows: Array<{ id: string; title: string; description?: string }>;
+    }>
+  ): Promise<MessageResponse> {
+    return this.sendList(to, text, buttonText, sections, {
+      replyToMessageId: messageId
+    });
+  }
+
+  async replyWithLocation(
+    to: string,
+    messageId: string,
+    latitude: number,
+    longitude: number,
+    options: { name?: string; address?: string } = {}
+  ): Promise<MessageResponse> {
+    return this.sendLocation(to, latitude, longitude, {
+      ...options,
+      replyToMessageId: messageId
+    });
+  }
+
+  async replyWithContacts(
+    to: string,
+    messageId: string,
+    contacts: Array<any>
+  ): Promise<MessageResponse> {
+    return this.sendContacts(to, contacts, {
+      replyToMessageId: messageId
+    });
+  }
+
+  async replyWithSticker(
+    to: string,
+    messageId: string,
+    sticker: { id?: string; link?: string }
+  ): Promise<MessageResponse> {
+    return this.sendSticker(to, sticker, {
+      replyToMessageId: messageId
+    });
+  }
+
+  // ========================
+  // REACTION METHODS
+  // ========================
+
+  async sendReaction(
+    to: string,
+    messageId: string,
+    emoji: ReactionEmoji
+  ): Promise<ReactionResponse> {
+    try {
+      const message: ReactionMessage = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        type: WhatsAppMessageType.REACTION,
+        to: formatPhoneNumber(to),
+        reaction: {
+          message_id: messageId,
+          emoji
+        }
+      };
+
+      await withRetry(async () => {
+        await this.httpClient.post(`/${this.config.phoneNumberId}/messages`, message);
+      }, { maxRetries: 1, initialDelay: 100 });
+
+      return {
+        success: true,
+        messageId: undefined // Reactions don't return message IDs in the response
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send reaction'
+      };
+    }
+  }
+
+  async reactToMessage(
+    to: string,
+    messageId: string,
+    emoji: ReactionEmoji
+  ): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, emoji);
+  }
+
+  // Convenience methods for common emojis
+  async reactWithLike(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.LIKE);
+  }
+
+  async reactWithLove(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.LOVE);
+  }
+
+  async reactWithLaugh(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.LAUGH);
+  }
+
+  async reactWithWow(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.WOW);
+  }
+
+  async reactWithSad(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.SAD);
+  }
+
+  async reactWithAngry(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.ANGRY);
+  }
+
+  async reactWithThumbsUp(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.THUMBS_UP);
+  }
+
+  async reactWithThumbsDown(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.THUMBS_DOWN);
+  }
+
+  async reactWithHeart(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.HEART);
+  }
+
+  async reactWithHeartEyes(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.HEART_EYES);
+  }
+
+  async reactWithFire(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.FIRE);
+  }
+
+  async reactWithClap(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.CLAP);
+  }
+
+  async reactWithCheck(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.CHECK);
+  }
+
+  async reactWithCross(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, REACTION_EMOJIS.CROSS);
+  }
+
+  // Remove reaction (send empty emoji)
+  async removeReaction(to: string, messageId: string): Promise<ReactionResponse> {
+    return this.sendReaction(to, messageId, '');
   }
 
   // ========================

@@ -16,6 +16,9 @@ export enum WhatsAppMessageType {
   LOCATION = 'location',
   CONTACTS = 'contacts',
   STICKER = 'sticker',
+  REACTION = 'reaction',
+  TYPING_INDICATOR = 'typing_indicator',
+  READ_RECEIPT = 'read_receipt',
 }
 
 export enum MessageDirection {
@@ -68,18 +71,27 @@ export interface MediaInfo {
 }
 
 // ========================
+// BASE MESSAGE INTERFACE
+// ========================
+
+export interface BaseMessage {
+  messaging_product: 'whatsapp';
+  recipient_type: 'individual';
+  to: string;
+  context?: {
+    message_id: string;
+  };
+}
+
+// ========================
 // TEXT MESSAGES
 // ========================
 
-export interface TextMessage {
+export interface TextMessage extends BaseMessage {
   type: WhatsAppMessageType.TEXT;
-  to: string;
   text: {
     body: string;
     preview_url?: boolean;
-  };
-  context?: {
-    message_id: string;
   };
 }
 
@@ -87,16 +99,12 @@ export interface TextMessage {
 // MEDIA MESSAGES
 // ========================
 
-export interface MediaMessage {
+export interface MediaMessage extends BaseMessage {
   type: WhatsAppMessageType.IMAGE | WhatsAppMessageType.VIDEO | WhatsAppMessageType.AUDIO | WhatsAppMessageType.DOCUMENT;
-  to: string;
   [key: string]: any; 
-  context?: {
-    message_id: string;
-  };
 }
 
-export interface ImageMessage extends MediaMessage {
+export interface ImageMessage extends BaseMessage {
   type: WhatsAppMessageType.IMAGE;
   image: {
     id?: string;
@@ -105,7 +113,7 @@ export interface ImageMessage extends MediaMessage {
   };
 }
 
-export interface VideoMessage extends MediaMessage {
+export interface VideoMessage extends BaseMessage {
   type: WhatsAppMessageType.VIDEO;
   video: {
     id?: string;
@@ -114,7 +122,7 @@ export interface VideoMessage extends MediaMessage {
   };
 }
 
-export interface AudioMessage extends MediaMessage {
+export interface AudioMessage extends BaseMessage {
   type: WhatsAppMessageType.AUDIO;
   audio: {
     id?: string;
@@ -122,7 +130,7 @@ export interface AudioMessage extends MediaMessage {
   };
 }
 
-export interface DocumentMessage extends MediaMessage {
+export interface DocumentMessage extends BaseMessage {
   type: WhatsAppMessageType.DOCUMENT;
   document: {
     id?: string;
@@ -136,9 +144,8 @@ export interface DocumentMessage extends MediaMessage {
 // INTERACTIVE MESSAGES
 // ========================
 
-export interface InteractiveMessage {
+export interface InteractiveMessage extends BaseMessage {
   type: WhatsAppMessageType.INTERACTIVE;
-  to: string;
   interactive: {
     type: 'button' | 'list' | 'flow';
     header?: {
@@ -155,9 +162,6 @@ export interface InteractiveMessage {
       text: string;
     };
     action: ButtonAction | ListAction | FlowAction;
-  };
-  context?: {
-    message_id: string;
   };
 }
 
@@ -202,9 +206,8 @@ export interface FlowAction {
 // TEMPLATE MESSAGES
 // ========================
 
-export interface TemplateMessage {
+export interface TemplateMessage extends BaseMessage {
   type: WhatsAppMessageType.TEMPLATE;
-  to: string;
   template: {
     name: string;
     language: {
@@ -229,17 +232,13 @@ export interface TemplateMessage {
 // LOCATION MESSAGES
 // ========================
 
-export interface LocationMessage {
+export interface LocationMessage extends BaseMessage {
   type: WhatsAppMessageType.LOCATION;
-  to: string;
   location: {
     latitude: number;
     longitude: number;
     name?: string;
     address?: string;
-  };
-  context?: {
-    message_id: string;
   };
 }
 
@@ -247,9 +246,8 @@ export interface LocationMessage {
 // CONTACTS MESSAGES
 // ========================
 
-export interface ContactMessage {
+export interface ContactMessage extends BaseMessage {
   type: WhatsAppMessageType.CONTACTS;
-  to: string;
   contacts: Array<{
     addresses?: Array<{
       street?: string;
@@ -288,25 +286,80 @@ export interface ContactMessage {
       type?: 'HOME' | 'WORK';
     }>;
   }>;
-  context?: {
-    message_id: string;
-  };
 }
 
 // ========================
 // STICKER MESSAGES
 // ========================
 
-export interface StickerMessage {
+export interface StickerMessage extends BaseMessage {
   type: WhatsAppMessageType.STICKER;
-  to: string;
   sticker: {
     id?: string;
     link?: string;
   };
-  context?: {
+}
+
+// ========================
+// REACTION MESSAGES
+// ========================
+
+export interface ReactionMessage extends BaseMessage {
+  type: WhatsAppMessageType.REACTION;
+  reaction: {
     message_id: string;
+    emoji: string;
   };
+}
+
+export interface ReactionResponse {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+// Common emoji constants for convenience
+export const REACTION_EMOJIS = {
+  LIKE: '👍',
+  LOVE: '❤️', 
+  LAUGH: '😂',
+  WOW: '😮',
+  SAD: '😢',
+  ANGRY: '😠',
+  THUMBS_UP: '👍',
+  THUMBS_DOWN: '👎',
+  HEART: '❤️',
+  HEART_EYES: '😍',
+  FIRE: '🔥',
+  CLAP: '👏',
+  CHECK: '✅',
+  CROSS: '❌'
+} as const;
+
+export type ReactionEmoji = typeof REACTION_EMOJIS[keyof typeof REACTION_EMOJIS] | string;
+
+// ========================
+// TYPING INDICATORS & READ RECEIPTS
+// ========================
+
+export interface TypingIndicatorMessage {
+  messaging_product: 'whatsapp';
+  to: string;
+  typing_indicator: {
+    type: 'text';
+  };
+}
+
+export interface ReadReceiptMessage {
+  messaging_product: 'whatsapp';
+  status: 'read';
+  message_id: string;
+}
+
+export interface TypingIndicatorResponse {
+  success: boolean;
+  messageId?: string;
+  error?: string;
 }
 
 // ========================
@@ -458,7 +511,8 @@ export type OutgoingMessage =
   | TemplateMessage 
   | LocationMessage
   | ContactMessage
-  | StickerMessage;
+  | StickerMessage
+  | ReactionMessage;
 
 export type MessageContent = {
   text?: string;

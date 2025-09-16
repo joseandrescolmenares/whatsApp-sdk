@@ -21,6 +21,12 @@
  *   caption: 'Check this out!'
  * });
  * 
+ * // Show typing indicator
+ * await client.sendTypingIndicator('+1234567890');
+ * 
+ * // Mark message as read
+ * await client.markMessageAsRead('message-id');
+ * 
  * // Handle webhooks
  * const messages = client.parseWebhook(webhookPayload);
  * ```
@@ -42,6 +48,6 @@ export {
   escapeWhatsAppText
 } from './utils';
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.7';
 
 export { WhatsAppClient as default } from './client';

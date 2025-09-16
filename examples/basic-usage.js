@@ -1,116 +1,73 @@
-const { WhatsAppClient } = require("whatsapp-client-sdk");
+/**
+ * WhatsApp Business SDK - Basic Usage Example
+ *
+ * Simple example showing how to send messages using the WhatsApp Business SDK
+ */
 
+const { WhatsAppClient } = require('whatsapp-client-sdk');
+
+// Initialize WhatsApp client
 const client = new WhatsAppClient({
   accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
-  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN, // Optional
-  businessId: process.env.WHATSAPP_BUSINESS_ID, // Optional
+  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN,
 });
+
+// Test phone number (replace with real number)
+const phoneNumber = '+1234567890';
 
 async function basicExample() {
   try {
-    const recipientPhone = "+1234567890";
+    console.log('📱 Sending WhatsApp messages...\n');
 
     // 1. Send a simple text message
-    console.log("Sending text message...");
-    const textResponse = await client.sendText(
-      recipientPhone,
-      "Hello! This is a message from the WhatsApp Business SDK 🚀"
+    console.log('1. Sending text message...');
+    const textResult = await client.sendText(phoneNumber, 'Hello! This is a test message from WhatsApp Business SDK.');
+    console.log('✅ Text message sent:', textResult.messageId);
+
+    // 2. Send a message with emojis
+    console.log('2. Sending message with emojis...');
+    await client.sendText(phoneNumber, '🎉 Welcome to our service! 🚀\n\nThanks for joining us! 😊');
+    console.log('✅ Emoji message sent');
+
+    // 3. Send an image
+    console.log('3. Sending image...');
+    await client.sendImage(
+      phoneNumber,
+      'https://picsum.photos/800/600',
+      'Sample image from our service'
     );
-    console.log("Text message sent:", textResponse.messageId);
+    console.log('✅ Image sent');
 
-    // 2. Send a text message with URL preview
-    console.log("Sending text with URL preview...");
-    await client.sendText(
-      recipientPhone,
-      "Check out this amazing SDK: https://wazap.dev",
-      { previewUrl: true }
-    );
-
-    // 3. Send an image message
-    console.log("Sending image message...");
-    await client.sendImage(recipientPhone, {
-      link: "https://example.com/sample-image.jpg",
-      caption: "This is a sample image sent via SDK!",
-    });
-
-    // 4. Send interactive buttons
-    console.log("Sending button message...");
+    // 4. Send buttons
+    console.log('4. Sending buttons...');
     await client.sendButtons(
-      recipientPhone,
-      "Choose an option:",
+      phoneNumber,
+      'Choose an option:',
       [
-        { id: "option_1", title: "Option 1" },
-        { id: "option_2", title: "Option 2" },
-        { id: "option_3", title: "Option 3" },
-      ],
-      {
-        header: { type: "text", text: "Interactive Menu" },
-        footer: "Powered by wazap.dev",
-      }
-    );
-
-    // 5. Send a list message
-    console.log("Sending list message...");
-    await client.sendList(
-      recipientPhone,
-      "Select a category:",
-      "View Categories",
-      [
-        {
-          title: "Products",
-          rows: [
-            {
-              id: "prod_1",
-              title: "Product 1",
-              description: "Description for product 1",
-            },
-            {
-              id: "prod_2",
-              title: "Product 2",
-              description: "Description for product 2",
-            },
-          ],
-        },
-        {
-          title: "Services",
-          rows: [
-            {
-              id: "serv_1",
-              title: "Service 1",
-              description: "Description for service 1",
-            },
-            {
-              id: "serv_2",
-              title: "Service 2",
-              description: "Description for service 2",
-            },
-          ],
-        },
+        { id: 'option1', title: '📋 Info' },
+        { id: 'option2', title: '💬 Support' },
+        { id: 'option3', title: '📞 Contact' }
       ]
     );
+    console.log('✅ Buttons sent');
 
-    // 6. Send location
-    console.log("Sending location...");
-    await client.sendLocation(recipientPhone, 40.7128, -74.006, {
-      name: "New York City",
-      address: "New York, NY, USA",
-    });
+    console.log('\n🎉 All messages sent successfully!');
 
-    console.log("All messages sent successfully! ✅");
   } catch (error) {
-    console.error("Error in basic example:", error);
-
-    // Handle specific error types
-    if (error.name === "WhatsAppApiError") {
-      console.error("WhatsApp API Error:", {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-      });
-    }
+    console.error('❌ Error:', error.message);
   }
 }
 
 // Run the example
-basicExample();
+if (require.main === module) {
+  // Check environment variables
+  if (!process.env.WHATSAPP_ACCESS_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
+    console.error('❌ Please set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID environment variables');
+    process.exit(1);
+  }
+
+  basicExample();
+}
+
+module.exports = { basicExample };

@@ -1,134 +1,115 @@
-const { WhatsAppClient } = require("whatsapp-client-sdk");
+/**
+ * WhatsApp Business SDK - Contacts and Stickers Example
+ *
+ * Simple example showing how to send contacts and handle stickers
+ */
 
+const { WhatsAppClient } = require('whatsapp-client-sdk');
+
+// Initialize WhatsApp client
 const client = new WhatsAppClient({
   accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+  webhookVerifyToken: process.env.WHATSAPP_WEBHOOK_TOKEN,
 });
 
-async function sendContactsAndStickers() {
+// Test phone number
+const phoneNumber = '+1234567890';
+
+async function contactsExample() {
   try {
-    const recipientPhone = "+1234567890";
+    console.log('📇 Sending contacts...\n');
 
-    // 1. Send contact information
-    console.log("Sending contact...");
-    await client.sendContacts(recipientPhone, [
-      {
-        name: {
-          formatted_name: "María García",
-          first_name: "María",
-          last_name: "García",
-        },
-        phones: [
-          {
-            phone: "+573001234567",
-            wa_id: "573001234567",
-            type: "WORK",
-          },
-          {
-            phone: "+573007654321",
-            type: "HOME",
-          },
-        ],
-        emails: [
-          {
-            email: "maria.garcia@empresa.com",
-            type: "WORK",
-          },
-        ],
-        addresses: [
-          {
-            street: "Carrera 10 #20-30",
-            city: "Bogotá",
-            state: "Cundinamarca",
-            country: "Colombia",
-            country_code: "CO",
-            type: "WORK",
-          },
-        ],
-        org: {
-          company: "Tech Solutions SAS",
-          department: "Desarrollo",
-          title: "Senior Developer",
-        },
-        urls: [
-          {
-            url: "https://linkedin.com/in/mariagarcia",
-            type: "WORK",
-          },
-        ],
-        birthday: "1990-05-15",
+    // 1. Send a simple contact
+    console.log('1. Sending business contact...');
+    await client.sendContact(phoneNumber, {
+      name: {
+        first_name: 'John',
+        last_name: 'Doe'
       },
-    ]);
-    console.log("Contact sent successfully!");
-
-    // 2. Send sticker by URL
-    console.log("Sending sticker...");
-    await client.sendSticker(recipientPhone, {
-      link: "https://example.com/stickers/celebration.webp",
+      phones: [
+        {
+          phone: '+1234567890',
+          type: 'WORK'
+        }
+      ],
+      emails: [
+        {
+          email: 'john@company.com',
+          type: 'WORK'
+        }
+      ],
+      org: {
+        company: 'Example Company'
+      }
     });
-    console.log("Sticker sent successfully!");
+    console.log('✅ Contact sent');
 
-    // 3. Send multiple contacts
-    console.log("Sending multiple contacts...");
-    await client.sendContacts(recipientPhone, [
+    // 2. Send multiple contacts
+    console.log('\n2. Sending multiple contacts...');
+    await client.sendContacts(phoneNumber, [
       {
-        name: {
-          formatted_name: "Juan Pérez",
-          first_name: "Juan",
-          last_name: "Pérez",
-        },
-        phones: [
-          {
-            phone: "+573001111111",
-            type: "WORK",
-          },
-        ],
-        emails: [
-          {
-            email: "juan@empresa.com",
-            type: "WORK",
-          },
-        ],
+        name: { first_name: 'Alice', last_name: 'Smith' },
+        phones: [{ phone: '+1111111111', type: 'CELL' }]
       },
       {
-        name: {
-          formatted_name: "Ana López",
-          first_name: "Ana",
-          last_name: "López",
-        },
-        phones: [
-          {
-            phone: "+573002222222",
-            type: "HOME",
-          },
-        ],
-        org: {
-          company: "Design Studio",
-          title: "UX Designer",
-        },
-      },
+        name: { first_name: 'Bob', last_name: 'Johnson' },
+        phones: [{ phone: '+2222222222', type: 'WORK' }]
+      }
     ]);
-    console.log("Multiple contacts sent successfully!");
+    console.log('✅ Multiple contacts sent');
 
-    console.log("All messages sent successfully! ✅");
+    console.log('\n🎉 Contacts demo completed!');
+
   } catch (error) {
-    console.error("Error sending messages:", error);
-
-    // Handle specific error types
-    if (error.name === "WhatsAppApiError") {
-      console.error("WhatsApp API Error:", {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-      });
-    } else if (error.name === "MessageValidationError") {
-      console.error("Validation Error:", {
-        message: error.message,
-        field: error.field,
-      });
-    }
+    console.error('❌ Error:', error.message);
   }
 }
 
-// Run the example
-sendContactsAndStickers();
+// Webhook processor for contacts and stickers
+const webhookProcessor = client.createWebhookProcessor({
+  onTextMessage: async (message) => {
+    console.log(`📥 Message from ${message.from}: ${message.text}`);
+    await client.markMessageAsRead(message.id);
+    await client.sendText(message.from, 'Message received!');
+  },
+
+  onContactMessage: async (message) => {
+    console.log(`📇 Contact received from ${message.from}`);
+    await client.markMessageAsRead(message.id);
+
+    const contact = message.contacts[0];
+    const name = contact.name?.formatted_name || 'Unknown';
+
+    await client.sendText(
+      message.from,
+      `📇 Thanks for sharing the contact: ${name}`
+    );
+
+    console.log('✅ Contact processed');
+  },
+
+  onStickerMessage: async (message) => {
+    console.log(`😀 Sticker received from ${message.from}`);
+    await client.markMessageAsRead(message.id);
+    await client.sendText(message.from, '😊 Nice sticker!');
+
+    console.log('✅ Sticker processed');
+  },
+
+  onError: async (error, message) => {
+    console.error('❌ Webhook error:', error.message);
+  }
+});
+
+// Run example
+if (require.main === module) {
+  if (!process.env.WHATSAPP_ACCESS_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
+    console.error('❌ Please set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID environment variables');
+    process.exit(1);
+  }
+
+  contactsExample();
+}
+
+module.exports = { contactsExample, webhookProcessor };
