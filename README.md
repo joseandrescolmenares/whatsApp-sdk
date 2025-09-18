@@ -16,6 +16,8 @@ A powerful, easy-to-use TypeScript/JavaScript SDK for the WhatsApp Business API.
 - 🔄 **All message types** - Text, images, videos, documents, interactive messages, templates, contacts, stickers
 - 💬 **Typing indicators & read receipts** - Enhanced user experience with real-time status updates
 - 🎣 **Framework-agnostic webhooks** - Zero boilerplate webhook handling that works with any framework
+- ❤️ **Incoming reactions & replies** - Full support for receiving and handling user reactions and message replies
+- 📊 **Message status tracking** - Track delivery status (sent, delivered, read, failed) with detailed error handling
 - 📁 **Media management** - Upload, download, and manage media files
 - 🛡️ **Error handling** - Comprehensive error types and handling
 - ⚡ **Modern** - Built with latest TypeScript and modern JavaScript features
@@ -410,6 +412,109 @@ await client.sendReaction('+1234567890', messageId, REACTION_EMOJIS.CLAP);
 // HEART, HEART_EYES, FIRE, CLAP, CHECK, CROSS
 ```
 
+### Receiving Reactions and Replies
+
+Handle incoming reactions and replies from users:
+
+```typescript
+const webhookProcessor = client.createWebhookProcessor({
+  // Handle incoming reactions
+  onReactionMessage: async (message) => {
+    console.log(`User ${message.from} reacted with ${message.reaction.emoji}`);
+    console.log(`Original message: ${message.reaction.message_id}`);
+
+    // Thank them for the reaction
+    await client.sendText(message.from, `Thanks for the ${message.reaction.emoji}!`);
+  },
+
+  // Handle replies (messages with context)
+  onReplyMessage: async (message) => {
+    console.log(`User replied to message: ${message.context.message_id}`);
+
+    if (message.type === 'text') {
+      console.log(`Reply text: ${message.text}`);
+    }
+
+    // Acknowledge the reply
+    await client.replyToMessage(message.from, message.id, "Got your reply! 📨");
+  },
+
+  // Regular text messages (can also be replies)
+  onTextMessage: async (message) => {
+    if (message.context) {
+      console.log('This text message is a reply!');
+    }
+
+    // Auto-react based on message content
+    if (message.text.toLowerCase().includes('awesome')) {
+      await client.reactWithFire(message.from, message.id);
+    } else if (message.text.toLowerCase().includes('thanks')) {
+      await client.reactWithHeart(message.from, message.id);
+    } else {
+      await client.reactWithLike(message.from, message.id);
+    }
+  }
+});
+```
+
+### Message Status Tracking
+
+Track delivery status of your outgoing messages:
+
+```typescript
+const webhookProcessor = client.createWebhookProcessor({
+  // Handle message status updates (sent → delivered → read → failed)
+  onMessageStatusUpdate: async (statusUpdate) => {
+    console.log(`Message ${statusUpdate.id}: ${statusUpdate.status}`);
+    console.log(`Recipient: ${statusUpdate.recipient_id}`);
+    console.log(`Timestamp: ${new Date(parseInt(statusUpdate.timestamp) * 1000)}`);
+
+    switch (statusUpdate.status) {
+      case MessageStatus.SENT:
+        console.log('✅ Message sent successfully');
+        break;
+
+      case MessageStatus.DELIVERED:
+        console.log('📱 Message delivered to device');
+        break;
+
+      case MessageStatus.READ:
+        console.log('👀 Message was read by recipient');
+        // Maybe send a follow-up or mark as completed
+        break;
+
+      case MessageStatus.FAILED:
+        console.log('❌ Message failed to send');
+        if (statusUpdate.errors) {
+          statusUpdate.errors.forEach(error => {
+            console.log(`Error ${error.code}: ${error.title}`);
+
+            // Handle specific errors
+            if (error.code === 131047) {
+              // 24-hour window expired - send template message
+              await client.sendTemplate(statusUpdate.recipient_id, 'template_name');
+            }
+          });
+        }
+        break;
+    }
+
+    // Track pricing info for analytics
+    if (statusUpdate.pricing) {
+      console.log(`Cost: ${statusUpdate.pricing.category} (${statusUpdate.pricing.billable ? 'billable' : 'free'})`);
+    }
+  },
+
+  // Regular message handling continues to work
+  onTextMessage: async (message) => {
+    const response = await client.sendText(message.from, 'Message received!');
+
+    // The response will trigger status updates via webhook
+    console.log(`Sent message ${response.messageId} - tracking status...`);
+  }
+});
+```
+
 ### Auto-React in Webhooks
 
 ```typescript
@@ -583,6 +688,26 @@ Now that you have the basics working, explore these advanced features:
 | \`parseWebhook(payload)\` | Parse webhook payload | \`ProcessedIncomingMessage[]\` |
 | \`createWebhookProcessor(handlers)\` | Create framework-agnostic webhook processor | \`WebhookProcessor\` |
 | \`testConnection()\` | Test API connection | \`Promise<boolean>\` |
+
+### Webhook Handlers
+
+| Handler | Description | Parameters |
+|---------|-------------|------------|
+| \`onTextMessage\` | Handle incoming text messages | \`(message: ProcessedIncomingMessage & { text: string })\` |
+| \`onImageMessage\` | Handle incoming image messages | \`(message: ProcessedIncomingMessage & { media: MediaInfo })\` |
+| \`onVideoMessage\` | Handle incoming video messages | \`(message: ProcessedIncomingMessage & { media: MediaInfo })\` |
+| \`onAudioMessage\` | Handle incoming audio messages | \`(message: ProcessedIncomingMessage & { media: MediaInfo })\` |
+| \`onDocumentMessage\` | Handle incoming document messages | \`(message: ProcessedIncomingMessage & { media: MediaInfo })\` |
+| \`onLocationMessage\` | Handle incoming location messages | \`(message: ProcessedIncomingMessage & { location: LocationInfo })\` |
+| \`onStickerMessage\` | Handle incoming sticker messages | \`(message: ProcessedIncomingMessage & { media: MediaInfo })\` |
+| \`onContactMessage\` | Handle incoming contact messages | \`(message: ProcessedIncomingMessage)\` |
+| \`onButtonClick\` | Handle button interactions | \`(message: ProcessedIncomingMessage & { interactive: InteractiveInfo })\` |
+| \`onListSelect\` | Handle list selections | \`(message: ProcessedIncomingMessage & { interactive: InteractiveInfo })\` |
+| \`onReactionMessage\` | **NEW:** Handle incoming reactions | \`(message: ProcessedIncomingMessage & { reaction: { message_id: string, emoji: string } })\` |
+| \`onReplyMessage\` | **NEW:** Handle reply messages | \`(message: ProcessedIncomingMessage & { context: { message_id: string } })\` |
+| \`onMessageStatusUpdate\` | **NEW:** Handle message delivery status | \`(statusUpdate: MessageStatusUpdate)\` |
+| \`onUnknownMessage\` | Handle unknown message types | \`(message: ProcessedIncomingMessage)\` |
+| \`onError\` | Handle errors | \`(error: Error, message?: ProcessedIncomingMessage)\` |
 
 ## 🛠️ Development
 

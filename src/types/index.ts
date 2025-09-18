@@ -32,6 +32,13 @@ export enum MessageSender {
   HUMAN = 'human'
 }
 
+export enum MessageStatus {
+  SENT = 'sent',
+  DELIVERED = 'delivered',
+  READ = 'read',
+  FAILED = 'failed'
+}
+
 // ========================
 // CLIENT CONFIGURATION
 // ========================
@@ -397,6 +404,8 @@ export interface IncomingMessage {
             nfm_reply?: { response_json: string; body: string; name: string };
           };
           button?: { text: string; payload: string };
+          reaction?: { message_id: string; emoji: string };
+          context?: { message_id: string };
         }>;
         contacts?: Array<{
           profile: {
@@ -408,6 +417,25 @@ export interface IncomingMessage {
           status: string;
           timestamp: string;
           recipient_id: string;
+          conversation?: {
+            id: string;
+            origin?: {
+              type: string;
+            };
+          };
+          pricing?: {
+            pricing_model: string;
+            billable: boolean;
+            category: string;
+          };
+          errors?: Array<{
+            code: number;
+            title: string;
+            message?: string;
+            error_data?: {
+              details: string;
+            };
+          }>;
         }>;
       };
     }>;
@@ -441,8 +469,43 @@ export interface ProcessedIncomingMessage {
   contact?: {
     name: string;
   };
+  reaction?: {
+    message_id: string;
+    emoji: string;
+  };
+  context?: {
+    message_id: string;
+  };
   phoneNumberId: string;
   businessId: string;
+}
+
+export interface MessageStatusUpdate {
+  id: string;
+  status: MessageStatus;
+  timestamp: string;
+  recipient_id: string;
+  phoneNumberId: string;
+  businessId: string;
+  conversation?: {
+    id: string;
+    origin?: {
+      type: string;
+    };
+  };
+  pricing?: {
+    pricing_model: string;
+    billable: boolean;
+    category: string;
+  };
+  errors?: Array<{
+    code: number;
+    title: string;
+    message?: string;
+    error_data?: {
+      details: string;
+    };
+  }>;
 }
 
 // ========================
@@ -460,6 +523,9 @@ export interface WebhookHandlers {
   onListSelect?: (message: ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> }) => Promise<void> | void;
   onStickerMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
   onContactMessage?: (message: ProcessedIncomingMessage) => Promise<void> | void;
+  onReactionMessage?: (message: ProcessedIncomingMessage & { reaction: NonNullable<ProcessedIncomingMessage['reaction']> }) => Promise<void> | void;
+  onReplyMessage?: (message: ProcessedIncomingMessage & { context: NonNullable<ProcessedIncomingMessage['context']> }) => Promise<void> | void;
+  onMessageStatusUpdate?: (statusUpdate: MessageStatusUpdate) => Promise<void> | void;
   onUnknownMessage?: (message: ProcessedIncomingMessage) => Promise<void> | void;
   onError?: (error: Error, message?: ProcessedIncomingMessage) => Promise<void> | void;
 }
@@ -474,6 +540,7 @@ export interface WebhookProcessorResult {
   status: number;
   response: string | number;
   messages?: ProcessedIncomingMessage[];
+  statusUpdates?: MessageStatusUpdate[];
 }
 
 // ========================

@@ -1,9 +1,11 @@
 import {
   IncomingMessage,
   ProcessedIncomingMessage,
+  MessageStatusUpdate,
   WebhookProcessorConfig,
   WebhookProcessorResult,
-  WhatsAppMessageType
+  WhatsAppMessageType,
+  MessageStatus
 } from '../types';
 
 export class WebhookProcessor {
@@ -41,16 +43,21 @@ export class WebhookProcessor {
         }
       }
 
-      const messages = this.parseWebhook(body);
-      
+      const { messages, statusUpdates } = this.parseWebhook(body);
+
       if (messages.length > 0) {
         await this.handleMessages(messages);
+      }
+
+      if (statusUpdates.length > 0) {
+        await this.handleStatusUpdates(statusUpdates);
       }
 
       return {
         status: 200,
         response: 'OK',
-        messages
+        messages,
+        statusUpdates
       };
     } catch (error) {
       if (this.config.handlers.onError) {
@@ -65,8 +72,9 @@ export class WebhookProcessor {
   }
 
 
-  private parseWebhook(webhook: IncomingMessage): ProcessedIncomingMessage[] {
+  private parseWebhook(webhook: IncomingMessage): { messages: ProcessedIncomingMessage[], statusUpdates: MessageStatusUpdate[] } {
     const messages: ProcessedIncomingMessage[] = [];
+    const statusUpdates: MessageStatusUpdate[] = [];
 
     webhook.entry?.forEach(entry => {
       entry.changes?.forEach(change => {
@@ -119,19 +127,54 @@ export class WebhookProcessor {
               };
             }
 
+            if (message.reaction) {
+              processedMessage.reaction = {
+                message_id: message.reaction.message_id,
+                emoji: message.reaction.emoji
+              };
+            }
+
+            if (message.context) {
+              processedMessage.context = {
+                message_id: message.context.message_id
+              };
+            }
+
             messages.push(processedMessage);
+          });
+        }
+
+        if (value.statuses) {
+          value.statuses.forEach(status => {
+            const statusUpdate: MessageStatusUpdate = {
+              id: status.id,
+              status: status.status as MessageStatus,
+              timestamp: status.timestamp,
+              recipient_id: status.recipient_id,
+              phoneNumberId: value.metadata.phone_number_id,
+              businessId: entry.id,
+              conversation: status.conversation,
+              pricing: status.pricing,
+              errors: status.errors
+            };
+
+            statusUpdates.push(statusUpdate);
           });
         }
       });
     });
 
-    return messages;
+    return { messages, statusUpdates };
   }
 
 
   private async handleMessages(messages: ProcessedIncomingMessage[]): Promise<void> {
     const handlePromises = messages.map(async (message) => {
       try {
+        if (message.context && this.config.handlers.onReplyMessage) {
+          await this.config.handlers.onReplyMessage(message as ProcessedIncomingMessage & { context: NonNullable<ProcessedIncomingMessage['context']> });
+        }
+
         switch (message.type) {
           case WhatsAppMessageType.TEXT:
             if (this.config.handlers.onTextMessage && message.text) {
@@ -191,6 +234,12 @@ export class WebhookProcessor {
             }
             break;
 
+          case WhatsAppMessageType.REACTION:
+            if (this.config.handlers.onReactionMessage && message.reaction) {
+              await this.config.handlers.onReactionMessage(message as ProcessedIncomingMessage & { reaction: NonNullable<ProcessedIncomingMessage['reaction']> });
+            }
+            break;
+
           default:
             if (this.config.handlers.onUnknownMessage) {
               await this.config.handlers.onUnknownMessage(message);
@@ -200,6 +249,22 @@ export class WebhookProcessor {
       } catch (error) {
         if (this.config.handlers.onError) {
           await this.config.handlers.onError(error as Error, message);
+        }
+      }
+    });
+
+    await Promise.all(handlePromises);
+  }
+
+  private async handleStatusUpdates(statusUpdates: MessageStatusUpdate[]): Promise<void> {
+    const handlePromises = statusUpdates.map(async (statusUpdate) => {
+      try {
+        if (this.config.handlers.onMessageStatusUpdate) {
+          await this.config.handlers.onMessageStatusUpdate(statusUpdate);
+        }
+      } catch (error) {
+        if (this.config.handlers.onError) {
+          await this.config.handlers.onError(error as Error);
         }
       }
     });
