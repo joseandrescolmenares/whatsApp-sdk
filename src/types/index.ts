@@ -396,6 +396,7 @@ export interface IncomingMessage {
           audio?: { id: string; mime_type: string };
           video?: { id: string; mime_type: string; caption?: string };
           document?: { id: string; mime_type: string; filename: string; caption?: string };
+          sticker?: { id: string; mime_type: string; sha256: string };
           location?: { latitude: number; longitude: number; name?: string; address?: string };
           interactive?: {
             type: string;
@@ -513,20 +514,20 @@ export interface MessageStatusUpdate {
 // ========================
 
 export interface WebhookHandlers {
-  onTextMessage?: (message: ProcessedIncomingMessage & { text: string }) => Promise<void> | void;
-  onImageMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
-  onVideoMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
-  onAudioMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
-  onDocumentMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
-  onLocationMessage?: (message: ProcessedIncomingMessage & { location: NonNullable<ProcessedIncomingMessage['location']> }) => Promise<void> | void;
-  onButtonClick?: (message: ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> }) => Promise<void> | void;
-  onListSelect?: (message: ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> }) => Promise<void> | void;
-  onStickerMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> }) => Promise<void> | void;
-  onContactMessage?: (message: ProcessedIncomingMessage) => Promise<void> | void;
-  onReactionMessage?: (message: ProcessedIncomingMessage & { reaction: NonNullable<ProcessedIncomingMessage['reaction']> }) => Promise<void> | void;
-  onReplyMessage?: (message: ProcessedIncomingMessage & { context: NonNullable<ProcessedIncomingMessage['context']> }) => Promise<void> | void;
+  onTextMessage?: (message: ProcessedIncomingMessage & { text: string } | (ProcessedIncomingMessage & { text: string })[]) => Promise<void> | void;
+  onImageMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> } | (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[]) => Promise<void> | void;
+  onVideoMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> } | (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[]) => Promise<void> | void;
+  onAudioMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> } | (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[]) => Promise<void> | void;
+  onDocumentMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> } | (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[]) => Promise<void> | void;
+  onLocationMessage?: (message: ProcessedIncomingMessage & { location: NonNullable<ProcessedIncomingMessage['location']> } | (ProcessedIncomingMessage & { location: NonNullable<ProcessedIncomingMessage['location']> })[]) => Promise<void> | void;
+  onButtonClick?: (message: ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> } | (ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> })[]) => Promise<void> | void;
+  onListSelect?: (message: ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> } | (ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> })[]) => Promise<void> | void;
+  onStickerMessage?: (message: ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> } | (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[]) => Promise<void> | void;
+  onContactMessage?: (message: ProcessedIncomingMessage | ProcessedIncomingMessage[]) => Promise<void> | void;
+  onReactionMessage?: (message: ProcessedIncomingMessage & { reaction: NonNullable<ProcessedIncomingMessage['reaction']> } | (ProcessedIncomingMessage & { reaction: NonNullable<ProcessedIncomingMessage['reaction']> })[]) => Promise<void> | void;
+  onReplyMessage?: (message: ProcessedIncomingMessage & { context: NonNullable<ProcessedIncomingMessage['context']> } | (ProcessedIncomingMessage & { context: NonNullable<ProcessedIncomingMessage['context']> })[]) => Promise<void> | void;
   onMessageStatusUpdate?: (statusUpdate: MessageStatusUpdate) => Promise<void> | void;
-  onUnknownMessage?: (message: ProcessedIncomingMessage) => Promise<void> | void;
+  onUnknownMessage?: (message: ProcessedIncomingMessage | ProcessedIncomingMessage[]) => Promise<void> | void;
   onError?: (error: Error, message?: ProcessedIncomingMessage) => Promise<void> | void;
 }
 
@@ -534,6 +535,11 @@ export interface WebhookProcessorConfig {
   verifyToken: string;
   handlers: WebhookHandlers;
   autoRespond?: boolean;
+
+  // Message buffering options
+  enableBuffer?: boolean;
+  bufferTimeMs?: number;    // default: 5000ms
+  maxBatchSize?: number;    // default: 100
 }
 
 export interface WebhookProcessorResult {
@@ -595,3 +601,22 @@ export type MessageContent = {
   };
   interactive?: any;
 };
+
+// ========================
+// MESSAGE BUFFER TYPES
+// ========================
+
+export interface MessageBuffer {
+  messages: ProcessedIncomingMessage[];
+  timer: NodeJS.Timeout;
+  firstMessageTime: number;
+}
+
+export interface BufferedMessageGroup {
+  phoneNumber: string;
+  messages: ProcessedIncomingMessage[];
+  timespan: {
+    start: number;
+    end: number;
+  };
+}

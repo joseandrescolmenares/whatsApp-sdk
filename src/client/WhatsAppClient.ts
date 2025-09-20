@@ -578,7 +578,7 @@ export class WhatsAppClient {
               processedMessage.text = message.text.body;
             }
 
-            if (message.image || message.video || message.audio || message.document) {
+            if (message.image || message.video || message.audio || message.document || message.sticker) {
               const mediaType = message.type as keyof typeof message;
               const mediaData = message[mediaType] as any;
               processedMessage.media = {
@@ -649,7 +649,7 @@ export class WhatsAppClient {
 
       return {
         success: true,
-        messageId: undefined // Typing indicators don't return message IDs
+        messageId: undefined 
       };
     } catch (error) {
       return {
@@ -688,21 +688,19 @@ export class WhatsAppClient {
     const safeDuration = Math.min(durationMs, maxDuration);
 
     try {
-      // Send typing indicator
       const result = await this.sendTypingIndicator(to, messageId);
       
       if (!result.success) {
         return result;
       }
 
-      // Auto-clear after specified duration
+
       const timeout = setTimeout(() => {
-        // In a real implementation, you might want to send a "stop typing" indicator
-        // For now, we'll just log that the typing indicator expired
+
         console.debug(`Typing indicator for ${to} expired after ${safeDuration}ms`);
       }, safeDuration);
       
-      // Don't keep the process alive for this timeout
+
       timeout.unref();
 
       return result;
@@ -861,7 +859,7 @@ export class WhatsAppClient {
 
       return {
         success: true,
-        messageId: undefined // Reactions don't return message IDs in the response
+        messageId: undefined 
       };
     } catch (error) {
       return {
@@ -936,7 +934,6 @@ export class WhatsAppClient {
     return this.sendReaction(to, messageId, REACTION_EMOJIS.CROSS);
   }
 
-  // Remove reaction (send empty emoji)
   async removeReaction(to: string, messageId: string): Promise<ReactionResponse> {
     return this.sendReaction(to, messageId, '');
   }

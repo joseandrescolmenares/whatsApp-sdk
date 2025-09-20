@@ -5,14 +5,20 @@ import {
   WebhookProcessorConfig,
   WebhookProcessorResult,
   WhatsAppMessageType,
-  MessageStatus
+  MessageStatus,
+  MessageBuffer
 } from '../types';
 
 export class WebhookProcessor {
   private config: WebhookProcessorConfig;
+  private messageBuffers: Map<string, MessageBuffer> = new Map();
 
   constructor(config: WebhookProcessorConfig) {
-    this.config = config;
+    this.config = {
+      bufferTimeMs: 5000,
+      maxBatchSize: 100,
+      ...config
+    };
   }
 
 
@@ -46,7 +52,11 @@ export class WebhookProcessor {
       const { messages, statusUpdates } = this.parseWebhook(body);
 
       if (messages.length > 0) {
-        await this.handleMessages(messages);
+        if (this.config.enableBuffer) {
+          await this.handleMessagesWithBuffer(messages);
+        } else {
+          await this.handleMessages(messages);
+        }
       }
 
       if (statusUpdates.length > 0) {
@@ -97,7 +107,7 @@ export class WebhookProcessor {
               processedMessage.text = message.text.body;
             }
 
-            if (message.image || message.video || message.audio || message.document) {
+            if (message.image || message.video || message.audio || message.document || message.sticker) {
               const mediaType = message.type as keyof typeof message;
               const mediaData = message[mediaType] as any;
               processedMessage.media = {
@@ -168,92 +178,256 @@ export class WebhookProcessor {
   }
 
 
+  private async handleMessagesWithBuffer(messages: ProcessedIncomingMessage[]): Promise<void> {
+    for (const message of messages) {
+      const phoneNumber = message.from;
+
+      if (this.messageBuffers.has(phoneNumber)) {
+        const buffer = this.messageBuffers.get(phoneNumber)!;
+        buffer.messages.push(message);
+
+        clearTimeout(buffer.timer);
+
+        if (buffer.messages.length >= this.config.maxBatchSize!) {
+          await this.processBufferedMessages(phoneNumber);
+        } else {
+          buffer.timer = this.createBufferTimer(phoneNumber);
+        }
+      } else {
+        const buffer: MessageBuffer = {
+          messages: [message],
+          timer: this.createBufferTimer(phoneNumber),
+          firstMessageTime: Date.now()
+        };
+        this.messageBuffers.set(phoneNumber, buffer);
+      }
+    }
+  }
+
+  private createBufferTimer(phoneNumber: string): NodeJS.Timeout {
+    return setTimeout(() => {
+      this.processBufferedMessages(phoneNumber);
+    }, this.config.bufferTimeMs!);
+  }
+
+  private async processBufferedMessages(phoneNumber: string): Promise<void> {
+    const buffer = this.messageBuffers.get(phoneNumber);
+    if (!buffer) return;
+
+    const messages = buffer.messages;
+    clearTimeout(buffer.timer);
+    this.messageBuffers.delete(phoneNumber);
+
+    await this.handleMessages(messages);
+  }
+
   private async handleMessages(messages: ProcessedIncomingMessage[]): Promise<void> {
-    const handlePromises = messages.map(async (message) => {
-      try {
-        if (message.context && this.config.handlers.onReplyMessage) {
-          await this.config.handlers.onReplyMessage(message as ProcessedIncomingMessage & { context: NonNullable<ProcessedIncomingMessage['context']> });
-        }
-
-        switch (message.type) {
-          case WhatsAppMessageType.TEXT:
-            if (this.config.handlers.onTextMessage && message.text) {
-              await this.config.handlers.onTextMessage(message as ProcessedIncomingMessage & { text: string });
-            }
-            break;
-
-          case WhatsAppMessageType.IMAGE:
-            if (this.config.handlers.onImageMessage && message.media) {
-              await this.config.handlers.onImageMessage(message as ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> });
-            }
-            break;
-
-          case WhatsAppMessageType.VIDEO:
-            if (this.config.handlers.onVideoMessage && message.media) {
-              await this.config.handlers.onVideoMessage(message as ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> });
-            }
-            break;
-
-          case WhatsAppMessageType.AUDIO:
-            if (this.config.handlers.onAudioMessage && message.media) {
-              await this.config.handlers.onAudioMessage(message as ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> });
-            }
-            break;
-
-          case WhatsAppMessageType.DOCUMENT:
-            if (this.config.handlers.onDocumentMessage && message.media) {
-              await this.config.handlers.onDocumentMessage(message as ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> });
-            }
-            break;
-
-          case WhatsAppMessageType.LOCATION:
-            if (this.config.handlers.onLocationMessage && message.location) {
-              await this.config.handlers.onLocationMessage(message as ProcessedIncomingMessage & { location: NonNullable<ProcessedIncomingMessage['location']> });
-            }
-            break;
-
-          case WhatsAppMessageType.STICKER:
-            if (this.config.handlers.onStickerMessage && message.media) {
-              await this.config.handlers.onStickerMessage(message as ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> });
-            }
-            break;
-
-          case WhatsAppMessageType.CONTACTS:
-            if (this.config.handlers.onContactMessage) {
-              await this.config.handlers.onContactMessage(message);
-            }
-            break;
-
-          case WhatsAppMessageType.INTERACTIVE:
-            if (message.interactive) {
-              if (message.interactive.button_id && this.config.handlers.onButtonClick) {
-                await this.config.handlers.onButtonClick(message as ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> });
-              } else if (message.interactive.list_id && this.config.handlers.onListSelect) {
-                await this.config.handlers.onListSelect(message as ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> });
-              }
-            }
-            break;
-
-          case WhatsAppMessageType.REACTION:
-            if (this.config.handlers.onReactionMessage && message.reaction) {
-              await this.config.handlers.onReactionMessage(message as ProcessedIncomingMessage & { reaction: NonNullable<ProcessedIncomingMessage['reaction']> });
-            }
-            break;
-
-          default:
-            if (this.config.handlers.onUnknownMessage) {
-              await this.config.handlers.onUnknownMessage(message);
-            }
-            break;
-        }
-      } catch (error) {
-        if (this.config.handlers.onError) {
-          await this.config.handlers.onError(error as Error, message);
+    try {
+      const replyMessages = messages.filter(msg => msg.context);
+      if (replyMessages.length > 0 && this.config.handlers.onReplyMessage) {
+        const typedReplyMessages = replyMessages as (ProcessedIncomingMessage & { context: NonNullable<ProcessedIncomingMessage['context']> })[];
+        if (this.config.enableBuffer && typedReplyMessages.length > 1) {
+          await this.config.handlers.onReplyMessage(typedReplyMessages);
+        } else {
+          for (const message of typedReplyMessages) {
+            await this.config.handlers.onReplyMessage(message);
+          }
         }
       }
-    });
 
-    await Promise.all(handlePromises);
+      const messagesByType = new Map<WhatsAppMessageType, ProcessedIncomingMessage[]>();
+
+      for (const message of messages) {
+        if (!messagesByType.has(message.type)) {
+          messagesByType.set(message.type, []);
+        }
+        messagesByType.get(message.type)!.push(message);
+      }
+
+      for (const [type, typeMessages] of messagesByType) {
+        await this.handleMessagesByType(type, typeMessages);
+      }
+    } catch (error) {
+      if (this.config.handlers.onError) {
+        await this.config.handlers.onError(error as Error);
+      }
+    }
+  }
+
+  private async handleMessagesByType(type: WhatsAppMessageType, messages: ProcessedIncomingMessage[]): Promise<void> {
+    const isBufferEnabled = this.config.enableBuffer && messages.length > 1;
+
+    switch (type) {
+      case WhatsAppMessageType.TEXT:
+        if (this.config.handlers.onTextMessage) {
+          const textMessages = messages.filter(msg => msg.text) as (ProcessedIncomingMessage & { text: string })[];
+          if (textMessages.length > 0) {
+            if (isBufferEnabled) {
+              await this.config.handlers.onTextMessage(textMessages);
+            } else {
+              for (const message of textMessages) {
+                await this.config.handlers.onTextMessage(message);
+              }
+            }
+          }
+        }
+        break;
+
+      case WhatsAppMessageType.IMAGE:
+        if (this.config.handlers.onImageMessage) {
+          const imageMessages = messages.filter(msg => msg.media) as (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[];
+          if (imageMessages.length > 0) {
+            if (isBufferEnabled) {
+              await this.config.handlers.onImageMessage(imageMessages);
+            } else {
+              for (const message of imageMessages) {
+                await this.config.handlers.onImageMessage(message);
+              }
+            }
+          }
+        }
+        break;
+
+      case WhatsAppMessageType.VIDEO:
+        if (this.config.handlers.onVideoMessage) {
+          const videoMessages = messages.filter(msg => msg.media) as (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[];
+          if (videoMessages.length > 0) {
+            if (isBufferEnabled) {
+              await this.config.handlers.onVideoMessage(videoMessages);
+            } else {
+              for (const message of videoMessages) {
+                await this.config.handlers.onVideoMessage(message);
+              }
+            }
+          }
+        }
+        break;
+
+      case WhatsAppMessageType.AUDIO:
+        if (this.config.handlers.onAudioMessage) {
+          const audioMessages = messages.filter(msg => msg.media) as (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[];
+          if (audioMessages.length > 0) {
+            if (isBufferEnabled) {
+              await this.config.handlers.onAudioMessage(audioMessages);
+            } else {
+              for (const message of audioMessages) {
+                await this.config.handlers.onAudioMessage(message);
+              }
+            }
+          }
+        }
+        break;
+
+      case WhatsAppMessageType.DOCUMENT:
+        if (this.config.handlers.onDocumentMessage) {
+          const documentMessages = messages.filter(msg => msg.media) as (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[];
+          if (documentMessages.length > 0) {
+            if (isBufferEnabled) {
+              await this.config.handlers.onDocumentMessage(documentMessages);
+            } else {
+              for (const message of documentMessages) {
+                await this.config.handlers.onDocumentMessage(message);
+              }
+            }
+          }
+        }
+        break;
+
+      case WhatsAppMessageType.LOCATION:
+        if (this.config.handlers.onLocationMessage) {
+          const locationMessages = messages.filter(msg => msg.location) as (ProcessedIncomingMessage & { location: NonNullable<ProcessedIncomingMessage['location']> })[];
+          if (locationMessages.length > 0) {
+            if (isBufferEnabled) {
+              await this.config.handlers.onLocationMessage(locationMessages);
+            } else {
+              for (const message of locationMessages) {
+                await this.config.handlers.onLocationMessage(message);
+              }
+            }
+          }
+        }
+        break;
+
+      case WhatsAppMessageType.STICKER:
+        if (this.config.handlers.onStickerMessage) {
+          const stickerMessages = messages.filter(msg => msg.media) as (ProcessedIncomingMessage & { media: NonNullable<ProcessedIncomingMessage['media']> })[];
+          if (stickerMessages.length > 0) {
+            if (isBufferEnabled) {
+              await this.config.handlers.onStickerMessage(stickerMessages);
+            } else {
+              for (const message of stickerMessages) {
+                await this.config.handlers.onStickerMessage(message);
+              }
+            }
+          }
+        }
+        break;
+
+      case WhatsAppMessageType.CONTACTS:
+        if (this.config.handlers.onContactMessage) {
+          if (isBufferEnabled) {
+            await this.config.handlers.onContactMessage(messages);
+          } else {
+            for (const message of messages) {
+              await this.config.handlers.onContactMessage(message);
+            }
+          }
+        }
+        break;
+
+      case WhatsAppMessageType.INTERACTIVE: {
+        const buttonMessages = messages.filter(msg => msg.interactive?.button_id) as (ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> })[];
+        const listMessages = messages.filter(msg => msg.interactive?.list_id) as (ProcessedIncomingMessage & { interactive: NonNullable<ProcessedIncomingMessage['interactive']> })[];
+
+        if (buttonMessages.length > 0 && this.config.handlers.onButtonClick) {
+          if (isBufferEnabled) {
+            await this.config.handlers.onButtonClick(buttonMessages);
+          } else {
+            for (const message of buttonMessages) {
+              await this.config.handlers.onButtonClick(message);
+            }
+          }
+        }
+
+        if (listMessages.length > 0 && this.config.handlers.onListSelect) {
+          if (isBufferEnabled) {
+            await this.config.handlers.onListSelect(listMessages);
+          } else {
+            for (const message of listMessages) {
+              await this.config.handlers.onListSelect(message);
+            }
+          }
+        }
+        break;
+      }
+
+      case WhatsAppMessageType.REACTION:
+        if (this.config.handlers.onReactionMessage) {
+          const reactionMessages = messages.filter(msg => msg.reaction) as (ProcessedIncomingMessage & { reaction: NonNullable<ProcessedIncomingMessage['reaction']> })[];
+          if (reactionMessages.length > 0) {
+            if (isBufferEnabled) {
+              await this.config.handlers.onReactionMessage(reactionMessages);
+            } else {
+              for (const message of reactionMessages) {
+                await this.config.handlers.onReactionMessage(message);
+              }
+            }
+          }
+        }
+        break;
+
+      default:
+        if (this.config.handlers.onUnknownMessage) {
+          if (isBufferEnabled) {
+            await this.config.handlers.onUnknownMessage(messages);
+          } else {
+            for (const message of messages) {
+              await this.config.handlers.onUnknownMessage(message);
+            }
+          }
+        }
+        break;
+    }
   }
 
   private async handleStatusUpdates(statusUpdates: MessageStatusUpdate[]): Promise<void> {
