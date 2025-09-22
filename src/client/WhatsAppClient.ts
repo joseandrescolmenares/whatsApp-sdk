@@ -24,6 +24,7 @@ import {
   IncomingMessage,
   WhatsAppMessageType,
   WebhookHandlers,
+  WebhookHandlersWithBuffer,
   TypingIndicatorMessage,
   ReadReceiptMessage,
   TypingIndicatorResponse,
@@ -617,12 +618,32 @@ export class WhatsAppClient {
     return messages;
   }
 
-  createWebhookProcessor(handlers: WebhookHandlers): WebhookProcessor {
-    return new WebhookProcessor({
-      verifyToken: this.config.webhookVerifyToken,
-      handlers,
-      autoRespond: true
-    });
+  createWebhookProcessor(handlers: WebhookHandlers): WebhookProcessor;
+  createWebhookProcessor(handlersWithBuffer: WebhookHandlersWithBuffer): WebhookProcessor;
+  createWebhookProcessor(handlersOrConfig: WebhookHandlers | WebhookHandlersWithBuffer): WebhookProcessor {
+    // Check if buffer options are provided
+    const hasBufferOptions = 'enableBuffer' in handlersOrConfig ||
+                             'bufferTimeMs' in handlersOrConfig ||
+                             'maxBatchSize' in handlersOrConfig;
+
+    if (hasBufferOptions) {
+      const { enableBuffer, bufferTimeMs, maxBatchSize, ...handlers } = handlersOrConfig as WebhookHandlersWithBuffer;
+
+      return new WebhookProcessor({
+        verifyToken: this.config.webhookVerifyToken,
+        handlers: handlers as WebhookHandlers,
+        autoRespond: true,
+        enableBuffer,
+        bufferTimeMs,
+        maxBatchSize
+      });
+    } else {
+      return new WebhookProcessor({
+        verifyToken: this.config.webhookVerifyToken,
+        handlers: handlersOrConfig as WebhookHandlers,
+        autoRespond: true
+      });
+    }
   }
 
   // ========================

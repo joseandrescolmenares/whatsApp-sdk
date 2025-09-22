@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2024-12-20
+
+### Enhanced
+- **Buffer Configuration**: Simplified buffer configuration in `createWebhookProcessor`
+  - Now accepts buffer options (`enableBuffer`, `bufferTimeMs`, `maxBatchSize`) directly alongside handlers
+  - No need to wrap handlers in a separate configuration object
+  - Added `WebhookHandlersWithBuffer` interface for better TypeScript support
+  - Maintains full backward compatibility with existing code
+
+### Documentation
+- Added comprehensive `BUFFER_CONFIGURATION_GUIDE.md` with usage examples and migration guide
+
+## [1.4.0] - 2024-12-20
+
+### Added
+- **Message Buffer System**: Optional buffering system to group messages from the same phone number
+  - Configurable buffer time (`bufferTimeMs`) and batch size (`maxBatchSize`)
+  - Automatic grouping of messages for better context and performance
+  - Backwards compatible - existing code works without changes
+  - Enable with `enableBuffer: true`
+- **Complete Sticker Support**: Full detection and handling of WhatsApp stickers
+  - `onStickerMessage` handler for processing sticker messages
+  - Access to sticker metadata (`message.media.id`, `message.media.mime_type`)
+  - Support for both individual and batched sticker processing
+
+### Enhanced
+- **WebhookProcessor**: Now supports both individual and array message processing
+- **Type Safety**: Improved TypeScript types for buffer and sticker functionality
+- **Documentation**: Comprehensive guide for message buffering in `MESSAGE_BUFFER.md`
+
+### Fixed
+- **Sticker Parsing**: Fixed parsing of sticker messages in both `WhatsAppClient` and `WebhookProcessor`
+- **Message Media**: Enhanced media detection to include stickers in webhook processing
+
 ## [1.0.0] - 2024-12-XX
 
 ### Added

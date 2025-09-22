@@ -531,6 +531,13 @@ export interface WebhookHandlers {
   onError?: (error: Error, message?: ProcessedIncomingMessage) => Promise<void> | void;
 }
 
+export interface WebhookHandlersWithBuffer extends WebhookHandlers {
+  // Message buffering options
+  enableBuffer?: boolean;
+  bufferTimeMs?: number;    // default: 5000ms
+  maxBatchSize?: number;    // default: 100
+}
+
 export interface WebhookProcessorConfig {
   verifyToken: string;
   handlers: WebhookHandlers;
