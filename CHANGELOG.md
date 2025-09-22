@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2024-12-20
+
+### Added
+- **Enhanced Error Handling System**: Comprehensive error management with detailed context and suggestions
+  - New error classes: `EnhancedWhatsAppError`, `ApiRequestError`, `WebhookProcessingError`, `BufferError`
+  - Categorized error codes (1000-7099) for better error identification
+  - Detailed error context including timestamps, operation details, and debugging information
+  - Automatic suggestions for error resolution based on error type and context
+  - Structured error data for better monitoring and logging
+
+### Enhanced
+- **WhatsAppClient**: Improved HTTP interceptor with specific error mapping
+  - Maps Meta API error codes to descriptive messages
+  - Provides context-aware suggestions for each error type
+  - Enhanced debugging information for API failures
+- **WebhookProcessor**: Better error handling in message processing
+  - Buffer overflow detection and prevention
+  - Contextual error information for webhook failures
+  - Improved error reporting for handler execution failures
+
+### Documentation
+- Added comprehensive `ENHANCED_ERROR_HANDLING_GUIDE.md` with examples and best practices
+- Detailed error code reference and troubleshooting guide
+- Migration examples from basic to enhanced error handling
+
 ## [1.4.1] - 2024-12-20
 
 ### Enhanced

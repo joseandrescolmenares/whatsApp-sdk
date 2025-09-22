@@ -15,6 +15,7 @@ module.exports = {
     'prefer-const': 'error',
     'no-var': 'error',
     'no-console': 'off',
+    'no-dupe-class-members': 'off', // Allow TypeScript method overloads
   },
   env: {
     node: true,

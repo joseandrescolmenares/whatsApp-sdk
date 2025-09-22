@@ -385,7 +385,10 @@ describe('WebhookProcessor - Status Updates', () => {
 
       expect(result.status).toBe(200);
       expect(mockHandlers.onError).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Processing error' })
+        expect.objectContaining({
+          message: expect.stringContaining('Processing error'),
+          name: 'WebhookProcessingError'
+        })
       );
     });
   });

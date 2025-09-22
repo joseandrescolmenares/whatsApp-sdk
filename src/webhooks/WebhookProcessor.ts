@@ -9,6 +9,12 @@ import {
   MessageBuffer
 } from '../types';
 
+import {
+  WebhookProcessingError,
+  BufferError,
+  ErrorContext
+} from '../errors';
+
 export class WebhookProcessor {
   private config: WebhookProcessorConfig;
   private messageBuffers: Map<string, MessageBuffer> = new Map();
@@ -70,13 +76,15 @@ export class WebhookProcessor {
         statusUpdates
       };
     } catch (error) {
+      const enhancedError = this.createEnhancedError(error, 'webhook_processing');
+
       if (this.config.handlers.onError) {
-        await this.config.handlers.onError(error as Error);
+        await this.config.handlers.onError(enhancedError);
       }
-      
+
       return {
         status: 500,
-        response: 'Internal Server Error'
+        response: enhancedError.message
       };
     }
   }
@@ -182,31 +190,55 @@ export class WebhookProcessor {
     for (const message of messages) {
       const phoneNumber = message.from;
 
-      if (this.messageBuffers.has(phoneNumber)) {
-        const buffer = this.messageBuffers.get(phoneNumber)!;
-        buffer.messages.push(message);
+      try {
+        if (this.messageBuffers.has(phoneNumber)) {
+          const buffer = this.messageBuffers.get(phoneNumber)!;
 
-        clearTimeout(buffer.timer);
+          if (buffer.messages.length >= (this.config.maxBatchSize! * 2)) {
+            throw this.createBufferError(phoneNumber,
+              `Buffer overflow detected. Buffer size: ${buffer.messages.length}, max allowed: ${this.config.maxBatchSize! * 2}`,
+              { messageId: message.id, additionalData: { bufferSize: buffer.messages.length } }
+            );
+          }
 
-        if (buffer.messages.length >= this.config.maxBatchSize!) {
-          await this.processBufferedMessages(phoneNumber);
+          buffer.messages.push(message);
+          clearTimeout(buffer.timer);
+
+          if (buffer.messages.length >= this.config.maxBatchSize!) {
+            await this.processBufferedMessages(phoneNumber);
+          } else {
+            buffer.timer = this.createBufferTimer(phoneNumber);
+          }
         } else {
-          buffer.timer = this.createBufferTimer(phoneNumber);
+          const buffer: MessageBuffer = {
+            messages: [message],
+            timer: this.createBufferTimer(phoneNumber),
+            firstMessageTime: Date.now()
+          };
+          this.messageBuffers.set(phoneNumber, buffer);
         }
-      } else {
-        const buffer: MessageBuffer = {
-          messages: [message],
-          timer: this.createBufferTimer(phoneNumber),
-          firstMessageTime: Date.now()
-        };
-        this.messageBuffers.set(phoneNumber, buffer);
+      } catch (error) {
+        if (this.config.handlers.onError) {
+          const bufferError = error instanceof BufferError ? error :
+            this.createBufferError(phoneNumber, error, { messageId: message.id });
+          await this.config.handlers.onError(bufferError);
+        }
       }
     }
   }
 
   private createBufferTimer(phoneNumber: string): NodeJS.Timeout {
-    return setTimeout(() => {
-      this.processBufferedMessages(phoneNumber);
+    return setTimeout(async () => {
+      try {
+        await this.processBufferedMessages(phoneNumber);
+      } catch (error) {
+        if (this.config.handlers.onError) {
+          const bufferError = this.createBufferError(phoneNumber, error,
+            { additionalData: { source: 'buffer_timer' } }
+          );
+          await this.config.handlers.onError(bufferError);
+        }
+      }
     }, this.config.bufferTimeMs!);
   }
 
@@ -249,7 +281,13 @@ export class WebhookProcessor {
       }
     } catch (error) {
       if (this.config.handlers.onError) {
-        await this.config.handlers.onError(error as Error);
+        const enhancedError = this.createEnhancedError(error, 'message_handling', {
+          additionalData: {
+            messageCount: messages.length,
+            messageTypes: [...new Set(messages.map(m => m.type))]
+          }
+        });
+        await this.config.handlers.onError(enhancedError);
       }
     }
   }
@@ -438,11 +476,47 @@ export class WebhookProcessor {
         }
       } catch (error) {
         if (this.config.handlers.onError) {
-          await this.config.handlers.onError(error as Error);
+          const enhancedError = this.createEnhancedError(error, 'status_update_handling', {
+            additionalData: {
+              statusUpdateId: statusUpdate.id,
+              status: statusUpdate.status,
+              recipientId: statusUpdate.recipient_id
+            }
+          });
+          await this.config.handlers.onError(enhancedError);
         }
       }
     });
 
     await Promise.all(handlePromises);
+  }
+
+  private createEnhancedError(error: unknown, operation: string, context: Partial<ErrorContext> = {}): WebhookProcessingError {
+    const originalError = error instanceof Error ? error : new Error(String(error));
+
+    return new WebhookProcessingError(
+      `Failed during ${operation}: ${originalError.message}`,
+      {
+        operation,
+        timestamp: Date.now(),
+        ...context
+      },
+      originalError
+    );
+  }
+
+  private createBufferError(phoneNumber: string, error: unknown, context: Partial<ErrorContext> = {}): BufferError {
+    const originalError = error instanceof Error ? error : new Error(String(error));
+
+    return new BufferError(
+      `Buffer processing failed for ${phoneNumber}: ${originalError.message}`,
+      {
+        operation: 'message_buffering',
+        phoneNumber,
+        timestamp: Date.now(),
+        ...context
+      },
+      originalError
+    );
   }
 }

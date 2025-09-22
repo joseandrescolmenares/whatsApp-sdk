@@ -36,7 +36,9 @@ import {
 import {
   WhatsAppApiError,
   MediaProcessingError,
-  RateLimitError
+  ApiRequestError,
+  WhatsAppErrorCode,
+  ErrorContext
 } from '../errors';
 
 import {
@@ -94,20 +96,80 @@ export class WhatsAppClient {
         return response;
       },
       (error) => {
-        if (error.response?.status === 429) {
-          const retryAfter = error.response.headers['retry-after'];
-          throw new RateLimitError(
-            'Rate limit exceeded',
-            retryAfter ? parseInt(retryAfter) : undefined
+        const status = error.response?.status || 0;
+        const errorData = error.response?.data?.error;
+        const context: Partial<ErrorContext> = {
+          timestamp: Date.now(),
+          operation: 'api_request',
+          requestId: error.response?.headers['x-fb-trace-id'] || error.response?.headers['x-request-id'],
+          additionalData: {
+            url: error.config?.url,
+            method: error.config?.method?.toUpperCase(),
+            status,
+            statusText: error.response?.statusText
+          }
+        };
+
+        if (status === 429) {
+          throw new ApiRequestError(
+            'Rate limit exceeded. Please reduce your request frequency.',
+            status,
+            WhatsAppErrorCode.RATE_LIMIT_EXCEEDED,
+            context,
+            error.response?.data,
+            error
           );
         }
 
-        const errorData = error.response?.data?.error;
-        throw new WhatsAppApiError(
-          error.message,
-          errorData,
-          undefined,
-          error.response?.status
+        let errorCode: WhatsAppErrorCode;
+        let message: string;
+
+        switch (status) {
+          case 401:
+            errorCode = WhatsAppErrorCode.MISSING_ACCESS_TOKEN;
+            message = 'Authentication failed. Please check your access token.';
+            break;
+          case 403:
+            errorCode = WhatsAppErrorCode.BUSINESS_NOT_VERIFIED;
+            message = 'Permission denied. Your business account may not be verified.';
+            break;
+          case 400:
+            if (errorData?.code === 131026) {
+              errorCode = WhatsAppErrorCode.MESSAGE_TOO_LONG;
+              message = 'Message content exceeds maximum allowed length.';
+            } else if (errorData?.code === 131021) {
+              errorCode = WhatsAppErrorCode.INVALID_PHONE_NUMBER;
+              message = 'Invalid recipient phone number format.';
+            } else if (errorData?.code === 131016) {
+              errorCode = WhatsAppErrorCode.UNSUPPORTED_MESSAGE_TYPE;
+              message = 'The message type is not supported for this recipient.';
+            } else {
+              errorCode = WhatsAppErrorCode.API_REQUEST_FAILED;
+              message = errorData?.message || 'Bad request. Please check your message format.';
+            }
+            break;
+          case 404:
+            errorCode = WhatsAppErrorCode.TEMPLATE_NOT_FOUND;
+            message = 'Resource not found. Template or media may not exist.';
+            break;
+          case 500:
+          case 502:
+          case 503:
+            errorCode = WhatsAppErrorCode.API_REQUEST_FAILED;
+            message = 'WhatsApp API is experiencing issues. Please try again later.';
+            break;
+          default:
+            errorCode = WhatsAppErrorCode.API_REQUEST_FAILED;
+            message = errorData?.message || error.message || 'An unexpected error occurred.';
+        }
+
+        throw new ApiRequestError(
+          message,
+          status,
+          errorCode,
+          context,
+          error.response?.data,
+          error
         );
       }
     );
@@ -898,7 +960,6 @@ export class WhatsAppClient {
     return this.sendReaction(to, messageId, emoji);
   }
 
-  // Convenience methods for common emojis
   async reactWithLike(to: string, messageId: string): Promise<ReactionResponse> {
     return this.sendReaction(to, messageId, REACTION_EMOJIS.LIKE);
   }

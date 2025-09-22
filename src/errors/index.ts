@@ -5,5 +5,11 @@ export {
   WebhookVerificationError,
   MediaProcessingError,
   RateLimitError,
-  MessageValidationError
+  MessageValidationError,
+  EnhancedWhatsAppError,
+  WebhookProcessingError,
+  BufferError,
+  ApiRequestError,
+  WhatsAppErrorCode,
+  ErrorContext
 } from './WhatsAppError';
