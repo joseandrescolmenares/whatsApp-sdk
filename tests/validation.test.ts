@@ -27,7 +27,7 @@ describe('Validation Functions', () => {
   describe('validateConfig', () => {
     it('should validate correct configuration', () => {
       const validConfig = {
-        accessToken: 'test-token-123',
+        accessToken: 'test-token-123456789012345678901234567890',
         phoneNumberId: 'phone-id-123'
       };
 
@@ -48,12 +48,22 @@ describe('Validation Functions', () => {
         .toThrow(ConfigurationError);
     });
 
-    it('should throw ConfigurationError for invalid access token format', () => {
+    it('should throw ConfigurationError for token too short', () => {
       const config = {
-        accessToken: 'invalid@token!',
+        accessToken: 'short',
         phoneNumberId: 'test-id'
       };
-      
+
+      expect(() => validateConfig(config))
+        .toThrow(ConfigurationError);
+    });
+
+    it('should throw ConfigurationError for token with whitespace', () => {
+      const config = {
+        accessToken: 'token with spaces 12345678901234567890',
+        phoneNumberId: 'test-id'
+      };
+
       expect(() => validateConfig(config))
         .toThrow(ConfigurationError);
     });
