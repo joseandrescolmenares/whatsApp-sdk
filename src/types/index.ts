@@ -39,6 +39,9 @@ export enum MessageStatus {
   FAILED = 'failed'
 }
 
+import type { StorageConfig } from '../interfaces/StorageConfig';
+export type { StorageConfig } from '../interfaces/StorageConfig';
+
 // ========================
 // CLIENT CONFIGURATION
 // ========================
@@ -51,6 +54,7 @@ export interface WhatsAppConfig {
   webhookVerifyToken?: string;
   businessId?: string;
   timeout?: number;
+  storage?: StorageConfig;
 }
 
 // ========================
@@ -325,7 +329,6 @@ export interface ReactionResponse {
   error?: string;
 }
 
-// Common emoji constants for convenience
 export const REACTION_EMOJIS = {
   LIKE: '👍',
   LOVE: '❤️', 

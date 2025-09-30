@@ -40,6 +40,8 @@ export * from './errors';
 
 export * from './webhooks';
 
+export * from './storage';
+
 export {
   formatPhoneNumber,
   validatePhoneNumber,
@@ -48,6 +50,6 @@ export {
   escapeWhatsAppText
 } from './utils';
 
-export const VERSION = '1.1.7';
+export const VERSION = '1.5.0';
 
 export { WhatsAppClient as default } from './client';

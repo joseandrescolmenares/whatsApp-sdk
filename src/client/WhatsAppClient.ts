@@ -45,19 +45,27 @@ import {
   validateConfig,
   validateMessage,
   validateMediaFile,
+  validateStorageConfig,
   withRetry,
   formatPhoneNumber,
   getFileExtension
 } from '../utils';
 
 import { WebhookProcessor } from '../webhooks';
+import { StorageManager } from '../storage';
 
 export class WhatsAppClient {
-  private readonly config: Required<WhatsAppConfig>;
+  private readonly config: Required<Omit<WhatsAppConfig, 'storage'>> & { storage?: any };
   private readonly httpClient: AxiosInstance;
+  public readonly storage: StorageManager;
 
   constructor(config: WhatsAppConfig) {
     validateConfig(config);
+
+    // Validate storage configuration if provided
+    if (config.storage) {
+      validateStorageConfig(config.storage);
+    }
 
     this.config = {
       baseUrl: 'https://graph.facebook.com',
@@ -67,6 +75,10 @@ export class WhatsAppClient {
       businessId: '',
       ...config
     };
+
+    this.storage = config.storage
+      ? new StorageManager(config.storage)
+      : StorageManager.createDisabled();
 
     this.httpClient = axios.create({
       baseURL: `${this.config.baseUrl}/${this.config.apiVersion}`,
@@ -92,7 +104,9 @@ export class WhatsAppClient {
     this.httpClient.interceptors.response.use(
       (response) => {
         const duration = Date.now() - (response.config as any).metadata.startTime;
-        console.log(`WhatsApp API call completed in ${duration}ms`);
+        if (process.env.DEBUG?.includes('whatsapp-sdk')) {
+          console.log(`WhatsApp API call completed in ${duration}ms`);
+        }
         return response;
       },
       (error) => {
@@ -175,6 +189,16 @@ export class WhatsAppClient {
     );
   }
 
+  private initializeStorageInternal(): void {
+    if (this.storage.isEnabled()) {
+      this.storage.initialize().catch(error => {
+        if (process.env.DEBUG?.includes('whatsapp-sdk') || process.env.NODE_ENV !== 'production') {
+          console.warn('Failed to initialize storage:', error instanceof Error ? error.message : String(error));
+        }
+      });
+    }
+  }
+
   // ========================
   // MESSAGE SENDING METHODS
   // ========================
@@ -193,7 +217,7 @@ export class WhatsAppClient {
         { maxRetries: 3 }
       );
 
-      return {
+      const messageResponse: MessageResponse = {
         messageId: response.data.messages[0].id,
         success: true,
         metadata: {
@@ -201,6 +225,19 @@ export class WhatsAppClient {
           timestamp: Date.now()
         }
       };
+
+      if (this.storage.isEnabled() && this.storage.isFeatureEnabled('persistOutgoing')) {
+        try {
+          const messageWithId = { ...message, messageId: messageResponse.messageId };
+          await this.storage.saveMessage(messageWithId as any);
+        } catch (storageError) {
+          if (process.env.DEBUG?.includes('whatsapp-sdk') || process.env.NODE_ENV !== 'production') {
+            console.warn('Failed to persist outgoing message:', storageError instanceof Error ? storageError.message : String(storageError));
+          }
+        }
+      }
+
+      return messageResponse;
     } catch (error: any) {
       throw new WhatsAppApiError(
         `Failed to send ${message.type} message`,
@@ -642,14 +679,15 @@ export class WhatsAppClient {
             }
 
             if (message.image || message.video || message.audio || message.document || message.sticker) {
-              const mediaType = message.type as keyof typeof message;
-              const mediaData = message[mediaType] as any;
-              processedMessage.media = {
-                id: mediaData.id,
-                mime_type: mediaData.mime_type,
-                caption: mediaData.caption,
-                filename: mediaData.filename
-              };
+              const mediaData = message.image || message.video || message.audio || message.document || message.sticker;
+              if (mediaData) {
+                processedMessage.media = {
+                  id: mediaData.id,
+                  mime_type: mediaData.mime_type,
+                  caption: 'caption' in mediaData ? mediaData.caption as string | undefined : undefined,
+                  filename: 'filename' in mediaData ? mediaData.filename as string | undefined : undefined
+                };
+              }
             }
 
             if (message.location) {
@@ -683,7 +721,7 @@ export class WhatsAppClient {
   createWebhookProcessor(handlers: WebhookHandlers): WebhookProcessor;
   createWebhookProcessor(handlersWithBuffer: WebhookHandlersWithBuffer): WebhookProcessor;
   createWebhookProcessor(handlersOrConfig: WebhookHandlers | WebhookHandlersWithBuffer): WebhookProcessor {
-    // Check if buffer options are provided
+
     const hasBufferOptions = 'enableBuffer' in handlersOrConfig ||
                              'bufferTimeMs' in handlersOrConfig ||
                              'maxBatchSize' in handlersOrConfig;
@@ -698,13 +736,13 @@ export class WhatsAppClient {
         enableBuffer,
         bufferTimeMs,
         maxBatchSize
-      });
+      }, this.storage);
     } else {
       return new WebhookProcessor({
         verifyToken: this.config.webhookVerifyToken,
         handlers: handlersOrConfig as WebhookHandlers,
         autoRespond: true
-      });
+      }, this.storage);
     }
   }
 
@@ -780,7 +818,9 @@ export class WhatsAppClient {
 
       const timeout = setTimeout(() => {
 
-        console.debug(`Typing indicator for ${to} expired after ${safeDuration}ms`);
+        if (process.env.DEBUG?.includes('whatsapp-sdk')) {
+          console.debug(`Typing indicator for ${to} expired after ${safeDuration}ms`);
+        }
       }, safeDuration);
       
 
@@ -1041,5 +1081,77 @@ export class WhatsAppClient {
     } catch {
       return false;
     }
+  }
+
+  // ========================
+  // STORAGE METHODS
+  // ========================
+
+  async initializeStorage(): Promise<void> {
+    if (this.storage.isEnabled()) {
+      await this.storage.initialize();
+    }
+  }
+
+
+  async disconnectStorage(): Promise<void> {
+    await this.storage.disconnect();
+  }
+
+
+  isStorageEnabled(): boolean {
+    return this.storage.isEnabled();
+  }
+
+
+  getStorageFeatures() {
+    return this.storage.getFeatures();
+  }
+
+  async getConversation(phoneNumber: string, options?: { limit?: number; offset?: number }) {
+    return await this.storage.getConversation({
+      phoneNumber,
+      limit: options?.limit,
+      offset: options?.offset
+    });
+  }
+
+
+  async searchMessages(query: {
+    text?: string;
+    phoneNumber?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+  }) {
+    return await this.storage.searchMessages({
+      text: query.text,
+      phoneNumber: query.phoneNumber,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+      limit: query.limit
+    });
+  }
+
+  async getMessageThread(messageId: string) {
+    return await this.storage.getMessageThread(messageId);
+  }
+
+
+  async getConversationAnalytics(phoneNumber?: string, dateRange?: { from: Date; to: Date }) {
+    return await this.storage.getAnalytics({
+      phoneNumber,
+      dateFrom: dateRange?.from,
+      dateTo: dateRange?.to
+    });
+  }
+
+
+  async exportConversation(phoneNumber: string, format: 'json' | 'csv' = 'json') {
+    return await this.storage.exportConversation(phoneNumber, { format });
+  }
+
+  async cleanupOldMessages() {
+    return await this.storage.cleanupOldMessages();
   }
 }

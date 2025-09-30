@@ -15,16 +15,21 @@ import {
   ErrorContext
 } from '../errors';
 
+import { StorageManager } from '../storage';
+
 export class WebhookProcessor {
   private config: WebhookProcessorConfig;
   private messageBuffers: Map<string, MessageBuffer> = new Map();
+  private storage?: StorageManager;
+  private activeTimers: Set<NodeJS.Timeout> = new Set();
 
-  constructor(config: WebhookProcessorConfig) {
+  constructor(config: WebhookProcessorConfig, storage?: StorageManager) {
     this.config = {
       bufferTimeMs: 5000,
       maxBatchSize: 100,
       ...config
     };
+    this.storage = storage;
   }
 
 
@@ -33,6 +38,14 @@ export class WebhookProcessor {
       return parseInt(challenge, 10);
     }
     return null;
+  }
+
+  destroy(): void {
+    this.activeTimers.forEach(timer => clearTimeout(timer));
+    this.activeTimers.clear();
+
+    this.messageBuffers.forEach(buffer => clearTimeout(buffer.timer));
+    this.messageBuffers.clear();
   }
 
 
@@ -116,14 +129,15 @@ export class WebhookProcessor {
             }
 
             if (message.image || message.video || message.audio || message.document || message.sticker) {
-              const mediaType = message.type as keyof typeof message;
-              const mediaData = message[mediaType] as any;
-              processedMessage.media = {
-                id: mediaData.id,
-                mime_type: mediaData.mime_type,
-                caption: mediaData.caption,
-                filename: mediaData.filename
-              };
+              const mediaData = message.image || message.video || message.audio || message.document || message.sticker;
+              if (mediaData) {
+                processedMessage.media = {
+                  id: mediaData.id,
+                  mime_type: mediaData.mime_type,
+                  caption: 'caption' in mediaData ? mediaData.caption as string | undefined : undefined,
+                  filename: 'filename' in mediaData ? mediaData.filename as string | undefined : undefined
+                };
+              }
             }
 
             if (message.location) {
@@ -203,6 +217,7 @@ export class WebhookProcessor {
 
           buffer.messages.push(message);
           clearTimeout(buffer.timer);
+          this.activeTimers.delete(buffer.timer);
 
           if (buffer.messages.length >= this.config.maxBatchSize!) {
             await this.processBufferedMessages(phoneNumber);
@@ -228,7 +243,8 @@ export class WebhookProcessor {
   }
 
   private createBufferTimer(phoneNumber: string): NodeJS.Timeout {
-    return setTimeout(async () => {
+    const timer = setTimeout(async () => {
+      this.activeTimers.delete(timer);
       try {
         await this.processBufferedMessages(phoneNumber);
       } catch (error) {
@@ -240,6 +256,9 @@ export class WebhookProcessor {
         }
       }
     }, this.config.bufferTimeMs!);
+
+    this.activeTimers.add(timer);
+    return timer;
   }
 
   private async processBufferedMessages(phoneNumber: string): Promise<void> {
@@ -248,6 +267,7 @@ export class WebhookProcessor {
 
     const messages = buffer.messages;
     clearTimeout(buffer.timer);
+    this.activeTimers.delete(buffer.timer);
     this.messageBuffers.delete(phoneNumber);
 
     await this.handleMessages(messages);
@@ -255,6 +275,21 @@ export class WebhookProcessor {
 
   private async handleMessages(messages: ProcessedIncomingMessage[]): Promise<void> {
     try {
+      // Persist incoming messages if storage is enabled
+      if (this.storage?.isEnabled() && this.storage.isFeatureEnabled('persistIncoming')) {
+        try {
+          if (messages.length === 1) {
+            await this.storage.saveMessage(messages[0]);
+          } else {
+            await this.storage.bulkSaveMessages(messages);
+          }
+        } catch (storageError) {
+          if (process.env.DEBUG?.includes('whatsapp-sdk') || process.env.NODE_ENV !== 'production') {
+            console.warn('Failed to persist incoming messages:', storageError instanceof Error ? storageError.message : String(storageError));
+          }
+        }
+      }
+
       const replyMessages = messages.filter(msg => msg.context);
       if (replyMessages.length > 0 && this.config.handlers.onReplyMessage) {
         const typedReplyMessages = replyMessages as (ProcessedIncomingMessage & { context: NonNullable<ProcessedIncomingMessage['context']> })[];
@@ -469,6 +504,21 @@ export class WebhookProcessor {
   }
 
   private async handleStatusUpdates(statusUpdates: MessageStatusUpdate[]): Promise<void> {
+    // Persist status updates if storage is enabled
+    if (this.storage?.isEnabled() && this.storage.isFeatureEnabled('persistStatus')) {
+      try {
+        const statusUpdatePromises = statusUpdates.map(async (statusUpdate) => {
+          // Find and update the corresponding message status
+          await this.storage!.updateMessageStatus(statusUpdate.id, statusUpdate.status);
+        });
+        await Promise.all(statusUpdatePromises);
+      } catch (storageError) {
+        if (process.env.DEBUG?.includes('whatsapp-sdk') || process.env.NODE_ENV !== 'production') {
+          console.warn('Failed to persist status updates:', storageError instanceof Error ? storageError.message : String(storageError));
+        }
+      }
+    }
+
     const handlePromises = statusUpdates.map(async (statusUpdate) => {
       try {
         if (this.config.handlers.onMessageStatusUpdate) {
