@@ -50,6 +50,6 @@ export {
   escapeWhatsAppText
 } from './utils';
 
-export const VERSION = '1.5.2';
+export const VERSION = '1.5.3';
 
 export { WhatsAppClient as default } from './client';

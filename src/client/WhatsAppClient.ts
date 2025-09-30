@@ -1091,7 +1091,8 @@ export class WhatsAppClient {
   // ========================
 
   async initializeStorage(): Promise<void> {
-    if (this.storage.isEnabled()) {
+    const config = this.storage.getConfig();
+    if (config && config.enabled) {
       await this.storage.initialize();
     }
   }
