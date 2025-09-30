@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_whatsapp_id ON whatsapp_messages(whatsap
 
 -- Full-text search index for content
 CREATE INDEX IF NOT EXISTS idx_messages_content_search ON whatsapp_messages
-  USING GIN ((content->>'text'));
+  USING GIN (to_tsvector('english', COALESCE(content->>'text', '')));
 
 -- Additional useful indexes
 CREATE INDEX IF NOT EXISTS idx_messages_phone_timestamp ON whatsapp_messages(from_phone, timestamp DESC);
@@ -211,7 +211,7 @@ RETURNS TABLE(
   to_phone VARCHAR,
   message_type VARCHAR,
   content JSONB,
-  timestamp TIMESTAMPTZ,
+  msg_timestamp TIMESTAMPTZ,
   direction VARCHAR,
   rank REAL
 ) AS $$
@@ -225,7 +225,7 @@ BEGIN
     m.to_phone,
     m.message_type,
     m.content,
-    m.timestamp,
+    m.timestamp AS msg_timestamp,
     m.direction,
     CASE
       WHEN search_text IS NOT NULL THEN

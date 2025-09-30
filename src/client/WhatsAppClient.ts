@@ -190,10 +190,13 @@ export class WhatsAppClient {
   }
 
   private initializeStorageInternal(): void {
-    if (this.storage.isEnabled()) {
+    // Storage initialization happens asynchronously in background
+    // Use initializeStorage() method for awaitable initialization
+    if (this.storage.getConfig()?.enabled) {
       this.storage.initialize().catch(error => {
-        if (process.env.DEBUG?.includes('whatsapp-sdk') || process.env.NODE_ENV !== 'production') {
-          console.warn('Failed to initialize storage:', error instanceof Error ? error.message : String(error));
+        console.error('Failed to initialize storage:', error instanceof Error ? error.message : String(error));
+        if (error instanceof Error && error.stack) {
+          console.error('Stack trace:', error.stack);
         }
       });
     }

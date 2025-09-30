@@ -53,19 +53,35 @@ export class SupabaseAdapter extends BaseAdapter {
           await this.createTables();
         } else {
           throw this.createStorageError(
-            'Tables do not exist and auto-create is disabled',
+            `Table '${this.options.tablePrefix}messages' does not exist in schema '${this.options.schema}'. ` +
+            `Run the SQL schema from /sql/supabase-schema.sql or set autoCreateTables: true`,
             'TABLES_NOT_FOUND',
-            'connect'
+            'connect',
+            { tablePrefix: this.options.tablePrefix, schema: this.options.schema }
           );
         }
       } else if (error) {
-        throw error;
+        console.error('Supabase connection error:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          table: `${this.options.tablePrefix}messages`
+        });
+        throw this.createStorageError(
+          `Supabase query failed: ${error.message}${error.hint ? ` (Hint: ${error.hint})` : ''}`,
+          error.code || 'QUERY_FAILED',
+          'connect',
+          { error, code: error.code, hint: error.hint }
+        );
       }
 
       this.connected = true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Failed to connect to Supabase:', errorMessage);
       throw this.createStorageError(
-        `Failed to connect to Supabase: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to connect to Supabase: ${errorMessage}`,
         'CONNECTION_FAILED',
         'connect',
         { error }
