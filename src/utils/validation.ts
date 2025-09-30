@@ -28,6 +28,7 @@ export function validateConfig(config: WhatsAppConfig): void {
     );
   }
 
+  // eslint-disable-next-line no-control-regex
   if (/\s/.test(config.accessToken) || /[\x00-\x1F\x7F]/.test(config.accessToken)) {
     throw new ConfigurationError(
       'Invalid access token: token contains invalid characters (whitespace or control characters)'

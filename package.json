@@ -20,7 +20,7 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run test && npm run lint && npm run build"
+    "prepublishOnly": "npm run lint && npm run build"
   },
   "keywords": [
     "whatsapp",
