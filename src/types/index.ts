@@ -630,3 +630,55 @@ export interface BufferedMessageGroup {
     end: number;
   };
 }
+
+// ========================
+// BROADCAST TYPES
+// ========================
+
+export interface BroadcastRecipient {
+  phoneNumber: string;
+  variables?: Record<string, string>; 
+}
+
+export interface BroadcastOptions {
+  /** Number of messages to send in each batch (default: 50) */
+  batchSize?: number;
+  /** Delay between batches in milliseconds (default: auto-calculated) */
+  delayBetweenBatches?: number;
+  /** Callback function for progress updates */
+  onProgress?: (progress: BroadcastProgress) => void;
+  /** Callback function for individual message results */
+  onMessageSent?: (result: MessageSendResult) => void;
+  /** Stop broadcast on first error (default: false) */
+  stopOnError?: boolean;
+}
+
+export interface BroadcastProgress {
+  total: number;
+  sent: number;
+  failed: number;
+  pending: number;
+  percentage: number;
+  startTime: number;
+  currentTime: number;
+  estimatedTimeRemaining?: number;
+}
+
+export interface MessageSendResult {
+  phoneNumber: string;
+  success: boolean;
+  messageId?: string;
+  error?: string;
+  timestamp: number;
+}
+
+export interface BroadcastResult {
+  broadcastId: string;
+  total: number;
+  successful: number;
+  failed: number;
+  results: MessageSendResult[];
+  duration: number;
+  startTime: number;
+  endTime: number;
+}

@@ -14,6 +14,7 @@ A powerful, easy-to-use TypeScript/JavaScript SDK for the WhatsApp Business API.
 - 🚀 **Easy to use** - Simple, intuitive API design
 - 📝 **Full TypeScript support** - Complete type definitions included
 - 🔄 **All message types** - Text, images, videos, documents, interactive messages, templates, contacts, stickers
+- 📢 **Broadcast messaging** - Send bulk notifications with intelligent rate limiting and progress tracking
 - 💬 **Typing indicators & read receipts** - Enhanced user experience with real-time status updates
 - 🎣 **Framework-agnostic webhooks** - Zero boilerplate webhook handling that works with any framework
 - ❤️ **Incoming reactions & replies** - Full support for receiving and handling user reactions and message replies
@@ -551,6 +552,111 @@ const buffer = await client.downloadMedia('media-id');
 // Use the buffer as needed
 ```
 
+## 📢 Broadcast Messages (Bulk Notifications)
+
+Send messages to multiple recipients with intelligent rate limiting and progress tracking.
+
+### Simple Text Broadcast
+
+```typescript
+const phoneNumbers = ['+1234567890', '+0987654321', '+1122334455'];
+
+const result = await client.sendBroadcastText(
+  phoneNumbers,
+  'Important announcement for all customers! 🎉',
+  {
+    onProgress: (progress) => {
+      console.log(`Progress: ${progress.sent}/${progress.total} (${progress.percentage.toFixed(1)}%)`);
+      console.log(`ETA: ${Math.round(progress.estimatedTimeRemaining / 1000)}s`);
+    }
+  }
+);
+
+console.log(`✅ Sent to ${result.successful} recipients`);
+console.log(`❌ Failed: ${result.failed}`);
+console.log(`⏱️  Duration: ${(result.duration / 1000).toFixed(2)}s`);
+```
+
+### Personalized Template Broadcast
+
+```typescript
+const recipients = [
+  {
+    phoneNumber: '+1234567890',
+    variables: { name: 'John', orderNumber: 'ORD-123' }
+  },
+  {
+    phoneNumber: '+0987654321',
+    variables: { name: 'Jane', orderNumber: 'ORD-456' }
+  }
+];
+
+const result = await client.sendBulkTemplates(
+  recipients,
+  'order_confirmation',  // Your WhatsApp template name
+  'en_US',
+  {
+    batchSize: 50,        // Messages per batch
+    onProgress: (progress) => {
+      console.log(`${progress.percentage.toFixed(1)}% complete`);
+    },
+    onMessageSent: (msgResult) => {
+      if (!msgResult.success) {
+        console.error(`Failed for ${msgResult.phoneNumber}: ${msgResult.error}`);
+      }
+    }
+  }
+);
+
+console.log(`Broadcast complete: ${result.successful}/${result.total} successful`);
+```
+
+### Advanced Broadcast Options
+
+```typescript
+const result = await client.sendBroadcastText(
+  phoneNumbers,
+  'Your message here',
+  {
+    batchSize: 100,              // Send 100 messages per batch (default: 50)
+    delayBetweenBatches: 2000,   // 2 second delay between batches
+    stopOnError: false,          // Continue even if some fail (default: false)
+    onProgress: (progress) => {
+      // Real-time progress updates
+      console.log(`Sent: ${progress.sent}, Failed: ${progress.failed}`);
+    },
+    onMessageSent: (result) => {
+      // Individual message result callback
+      if (result.success) {
+        console.log(`✅ ${result.phoneNumber}: ${result.messageId}`);
+      } else {
+        console.error(`❌ ${result.phoneNumber}: ${result.error}`);
+      }
+    }
+  }
+);
+```
+
+### Broadcast Control
+
+```typescript
+// Check if broadcast is running
+const isRunning = client.isBroadcastRunning();
+
+// Abort ongoing broadcast
+client.abortBroadcast();
+```
+
+### Rate Limiting
+
+The SDK automatically handles WhatsApp API rate limits:
+- **80 messages per second** maximum
+- **1000 messages per minute** (rolling window)
+- Intelligent batching to optimize throughput
+- Automatic delays between batches
+
+See `examples/broadcast-messages.js` for more examples.
+
 ## 🔌 Advanced Webhook Features
 
 ### Multiple Message Types Handler
@@ -681,6 +787,11 @@ Now that you have the basics working, explore these advanced features:
 | \`reactWithFire(to, messageId)\` | React with fire emoji | \`Promise<ReactionResponse>\` |
 | \`reactWithCheck(to, messageId)\` | React with check emoji | \`Promise<ReactionResponse>\` |
 | \`removeReaction(to, messageId)\` | Remove reaction from message | \`Promise<ReactionResponse>\` |
+| \`sendBroadcast(phoneNumbers, message, options?)\` | Send same message to multiple recipients | \`Promise<BroadcastResult>\` |
+| \`sendBroadcastText(phoneNumbers, text, options?)\` | Send text broadcast to multiple recipients | \`Promise<BroadcastResult>\` |
+| \`sendBulkTemplates(recipients, name, language, options?)\` | Send personalized templates to multiple recipients | \`Promise<BroadcastResult>\` |
+| \`abortBroadcast()\` | Abort ongoing broadcast operation | \`void\` |
+| \`isBroadcastRunning()\` | Check if broadcast is currently running | \`boolean\` |
 | \`uploadMedia(file, type)\` | Upload media file | \`Promise<MediaResponse>\` |
 | \`downloadMedia(mediaId)\` | Download media file | \`Promise<Buffer>\` |
 | \`getMediaInfo(mediaId)\` | Get media information | \`Promise<MediaInfo>\` |

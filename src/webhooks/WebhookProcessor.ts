@@ -275,7 +275,6 @@ export class WebhookProcessor {
 
   private async handleMessages(messages: ProcessedIncomingMessage[]): Promise<void> {
     try {
-      // Persist incoming messages if storage is enabled
       if (this.storage?.isEnabled() && this.storage.isFeatureEnabled('persistIncoming')) {
         try {
           if (messages.length === 1) {
@@ -504,11 +503,9 @@ export class WebhookProcessor {
   }
 
   private async handleStatusUpdates(statusUpdates: MessageStatusUpdate[]): Promise<void> {
-    // Persist status updates if storage is enabled
     if (this.storage?.isEnabled() && this.storage.isFeatureEnabled('persistStatus')) {
       try {
         const statusUpdatePromises = statusUpdates.map(async (statusUpdate) => {
-          // Find and update the corresponding message status
           await this.storage!.updateMessageStatus(statusUpdate.id, statusUpdate.status);
         });
         await Promise.all(statusUpdatePromises);

@@ -53,16 +53,22 @@ import {
 
 import { WebhookProcessor } from '../webhooks';
 import { StorageManager } from '../storage';
+import { BroadcastManager } from '../broadcast/BroadcastManager';
+import type {
+  BroadcastRecipient,
+  BroadcastOptions,
+  BroadcastResult
+} from '../types';
 
 export class WhatsAppClient {
   private readonly config: Required<Omit<WhatsAppConfig, 'storage'>> & { storage?: any };
   private readonly httpClient: AxiosInstance;
   public readonly storage: StorageManager;
+  private broadcastManager: BroadcastManager;
 
   constructor(config: WhatsAppConfig) {
     validateConfig(config);
 
-    // Validate storage configuration if provided
     if (config.storage) {
       validateStorageConfig(config.storage);
     }
@@ -88,6 +94,8 @@ export class WhatsAppClient {
         'Content-Type': 'application/json'
       }
     });
+
+    this.broadcastManager = new BroadcastManager(this);
 
     this.setupInterceptors();
   }
@@ -189,18 +197,6 @@ export class WhatsAppClient {
     );
   }
 
-  private initializeStorageInternal(): void {
-    // Storage initialization happens asynchronously in background
-    // Use initializeStorage() method for awaitable initialization
-    if (this.storage.getConfig()?.enabled) {
-      this.storage.initialize().catch(error => {
-        console.error('Failed to initialize storage:', error instanceof Error ? error.message : String(error));
-        if (error instanceof Error && error.stack) {
-          console.error('Stack trace:', error.stack);
-        }
-      });
-    }
-  }
 
   // ========================
   // MESSAGE SENDING METHODS
@@ -1157,5 +1153,57 @@ export class WhatsAppClient {
 
   async cleanupOldMessages() {
     return await this.storage.cleanupOldMessages();
+  }
+
+  // ========================
+  // BROADCAST METHODS
+  // ========================
+
+
+  async sendBroadcast(
+    phoneNumbers: string[],
+    message: OutgoingMessage,
+    options?: BroadcastOptions
+  ): Promise<BroadcastResult> {
+    return this.broadcastManager.sendBroadcast(phoneNumbers, message, options);
+  }
+
+  async sendBroadcastText(
+    phoneNumbers: string[],
+    text: string,
+    options?: BroadcastOptions
+  ): Promise<BroadcastResult> {
+    const message: OutgoingMessage = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      type: WhatsAppMessageType.TEXT,
+      to: '', // Will be set per recipient
+      text: { body: text }
+    };
+
+    return this.broadcastManager.sendBroadcast(phoneNumbers, message, options);
+  }
+
+  async sendBulkTemplates(
+    recipients: BroadcastRecipient[],
+    templateName: string,
+    languageCode: string,
+    options?: BroadcastOptions
+  ): Promise<BroadcastResult> {
+    return this.broadcastManager.sendBulkTemplates(
+      recipients,
+      templateName,
+      languageCode,
+      options
+    );
+  }
+
+
+  abortBroadcast(): void {
+    this.broadcastManager.abort();
+  }
+  
+  isBroadcastRunning(): boolean {
+    return this.broadcastManager.isRunning();
   }
 }

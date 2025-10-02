@@ -1,4 +1,3 @@
-// Storage configuration interfaces (avoiding circular dependencies)
 
 export interface StorageFeatures {
   persistIncoming: boolean;
@@ -22,7 +21,7 @@ export interface SupabaseOptions {
 }
 
 export interface CustomAdapterOptions {
-  customAdapter: any; // IStorageAdapter - will be defined later to avoid circular deps
+  customAdapter: any; 
   [key: string]: any;
 }
 
